@@ -1,0 +1,1046 @@
+{
+  "info": {
+    "name": "QR Code SaaS Platform API",
+    "description": "Complete API collection for testing all microservices endpoints through the API Gateway.\n\n## Setup Instructions:\n1. Make sure all services are running: `npm run dev`\n2. Database containers should be running: `docker-compose -f docker-compose.db-only.yaml up -d`\n3. Start with Authentication → Register User to get auth token\n4. The auth token will be automatically stored in collection variables\n5. All subsequent requests will use the stored token\n\n## Services Available:\n- API Gateway (Port 3000) - Main entry point\n- User Service (Port 3001) - Authentication & user management\n- QR Service (Port 3002) - QR code generation and management\n- Analytics Service (Port 3003) - Scan tracking and analytics\n- File Service (Port 3004) - File upload and storage\n- Notification Service (Port 3005) - Email and SMS notifications\n\n## Clean Architecture Implementation:\nThis API follows SOLID principles with proper separation of concerns, dependency injection, and comprehensive error handling.",
+    "version": "2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "qr_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "file_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notification_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🚀 Quick Test Workflow",
+      "description": "Run these requests in order for a complete platform test",
+      "item": [
+        {
+          "name": "1️⃣ Health Check - All Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2️⃣ Register New User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.user) {",
+                  "        pm.collectionVariables.set('user_id', response.data.user.id);",
+                  "    }",
+                  "    if (response.data && response.data.token) {",
+                  "        pm.collectionVariables.set('auth_token', response.data.token);",
+                  "    }",
+                  "    pm.test('User registered successfully', function () {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Workflow Test User\",\n  \"email\": \"workflow@example.com\",\n  \"password\": \"Test123!@#\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3️⃣ Create Sample QR Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.id) {",
+                  "        pm.collectionVariables.set('qr_id', response.data.id);",
+                  "    }",
+                  "    pm.test('QR Code created successfully', function () {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": \"https://github.com/zohaibmir/generate-custom-qrcode\",\n  \"type\": \"url\",\n  \"title\": \"Project Repository\",\n  \"description\": \"QR Code SaaS Platform GitHub Repository\",\n  \"customization\": {\n    \"size\": 300,\n    \"format\": \"png\",\n    \"errorCorrectionLevel\": \"M\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qr",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4️⃣ Track QR Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"scanData\": {\n    \"userAgent\": \"PostmanRuntime/7.32.0\",\n    \"ip\": \"127.0.0.1\",\n    \"location\": {\n      \"city\": \"Test City\",\n      \"country\": \"US\",\n      \"latitude\": 40.7128,\n      \"longitude\": -74.0060\n    },\n    \"referrer\": \"postman-collection\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/analytics/scan",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "scan"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5️⃣ Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "6️⃣ Get Analytics Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/user/summary?timeframe=7d",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "user", "summary"],
+              "query": [
+                {
+                  "key": "timeframe",
+                  "value": "7d"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.user) {",
+                  "        pm.collectionVariables.set('user_id', response.data.user.id);",
+                  "    }",
+                  "    if (response.data && response.data.token) {",
+                  "        pm.collectionVariables.set('auth_token', response.data.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Test123!@#\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.token) {",
+                  "        pm.collectionVariables.set('auth_token', response.data.token);",
+                  "    }",
+                  "    if (response.data && response.data.user) {",
+                  "        pm.collectionVariables.set('user_id', response.data.user.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Test123!@#\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Test User\",\n  \"email\": \"updated@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Test123!@#\",\n  \"newPassword\": \"NewTest123!@#\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "change-password"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "QR Code Management",
+      "item": [
+        {
+          "name": "Create QR Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.id) {",
+                  "        pm.collectionVariables.set('qr_id', response.data.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": \"https://example.com\",\n  \"type\": \"url\",\n  \"title\": \"Test QR Code\",\n  \"description\": \"A test QR code for URL\",\n  \"customization\": {\n    \"size\": 200,\n    \"format\": \"png\",\n    \"errorCorrectionLevel\": \"M\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qr",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get QR Code by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/qr/{{qr_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr", "{{qr_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User QR Codes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/qr?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update QR Code",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated QR Code\",\n  \"description\": \"Updated description\",\n  \"data\": \"https://updated-example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qr/{{qr_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr", "{{qr_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete QR Code",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/qr/{{qr_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr", "{{qr_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate QR Image",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/qr/{{qr_id}}/image?format=png&size=200",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr", "{{qr_id}}", "image"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "png",
+                  "description": "Image format: png, jpg, svg"
+                },
+                {
+                  "key": "size",
+                  "value": "200",
+                  "description": "Image size in pixels (100-1000)"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Text QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": \"Hello World! This is a text QR code.\",\n  \"type\": \"text\",\n  \"title\": \"Text QR Code\",\n  \"description\": \"A QR code containing plain text\",\n  \"customization\": {\n    \"size\": 300,\n    \"format\": \"png\",\n    \"errorCorrectionLevel\": \"H\",\n    \"margin\": 4\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qr",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create WiFi QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"ssid\": \"MyWiFiNetwork\",\n    \"password\": \"MyPassword123\",\n    \"security\": \"WPA\",\n    \"hidden\": false\n  },\n  \"type\": \"wifi\",\n  \"title\": \"WiFi QR Code\",\n  \"description\": \"QR code for WiFi connection\",\n  \"customization\": {\n    \"size\": 250,\n    \"format\": \"png\",\n    \"errorCorrectionLevel\": \"M\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qr",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Email QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": {\n    \"email\": \"contact@example.com\",\n    \"subject\": \"Hello from QR Code\",\n    \"body\": \"I scanned your QR code!\"\n  },\n  \"type\": \"email\",\n  \"title\": \"Email QR Code\",\n  \"description\": \"QR code for email composition\",\n  \"customization\": {\n    \"size\": 200,\n    \"format\": \"png\",\n    \"errorCorrectionLevel\": \"M\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/qr",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Track QR Scan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"scanData\": {\n    \"userAgent\": \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36\",\n    \"ip\": \"192.168.1.1\",\n    \"location\": {\n      \"city\": \"San Francisco\",\n      \"country\": \"US\",\n      \"latitude\": 37.7749,\n      \"longitude\": -122.4194\n    },\n    \"referrer\": \"https://google.com\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/analytics/scan",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "scan"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get QR Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/qr/{{qr_id}}?timeframe=7d",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "qr", "{{qr_id}}"],
+              "query": [
+                {
+                  "key": "timeframe",
+                  "value": "7d"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Analytics Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/user/summary?timeframe=30d",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "user", "summary"],
+              "query": [
+                {
+                  "key": "timeframe",
+                  "value": "30d",
+                  "description": "Timeframe: 1d, 7d, 30d, 90d, 1y"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Analytics Dashboard Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/dashboard?timeframe=7d",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "dashboard"],
+              "query": [
+                {
+                  "key": "timeframe",
+                  "value": "7d",
+                  "description": "Dashboard overview for specified timeframe"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Top Performing QR Codes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/top-qrs?limit=10&timeframe=30d",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "top-qrs"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of top QR codes to return"
+                },
+                {
+                  "key": "timeframe",
+                  "value": "30d",
+                  "description": "Time period for analysis"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "File Management",
+      "item": [
+        {
+          "name": "Upload File",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.data && response.data.id) {",
+                  "        pm.collectionVariables.set('file_id', response.data.id);",
+                  "    }",
+                  "    pm.test('File uploaded successfully', function () {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/your/test-file.png",
+                  "description": "Select a file to upload (PNG, JPG, PDF, etc.)"
+                },
+                {
+                  "key": "type",
+                  "value": "qr-logo",
+                  "description": "File type: qr-logo, avatar, document"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/files/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "upload"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get File by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/files/{{file_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "{{file_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/files/{{file_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "{{file_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Files",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/files/user?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "user"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Send Email Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"email\",\n  \"recipient\": \"test@example.com\",\n  \"template\": \"welcome\",\n  \"data\": {\n    \"name\": \"Test User\",\n    \"message\": \"Welcome to our QR Code platform!\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/notifications/send",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "send"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send SMS Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"sms\",\n  \"recipient\": \"+1234567890\",\n  \"template\": \"verification\",\n  \"data\": {\n    \"code\": \"123456\",\n    \"message\": \"Your verification code is: 123456\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/notifications/send",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "send"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Notification History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/history?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "API Gateway Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "User Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "QR Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/qr/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "qr", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Analytics Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/analytics/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analytics", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "File Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/files/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "files", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Notification Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

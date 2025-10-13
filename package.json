@@ -1,0 +1,39 @@
+{
+  "name": "qr-saas-platform",
+  "version": "1.0.0",
+  "description": "QR Code SaaS Platform with Microservices Architecture",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:gateway\" \"npm run dev:user\" \"npm run dev:qr\" \"npm run dev:analytics\" \"npm run dev:file\" \"npm run dev:notification\"",
+    "dev:gateway": "cd services/api-gateway && npm run dev",
+    "dev:user": "cd services/user-service && npm run dev",
+    "dev:qr": "cd services/qr-service && npm run dev",
+    "dev:analytics": "cd services/analytics-service && npm run dev",
+    "dev:file": "cd services/file-service && npm run dev",
+    "dev:notification": "cd services/notification-service && npm run dev",
+    "build": "npm run build:shared && npm run build:services",
+    "build:shared": "cd shared && npm run build",
+    "build:services": "concurrently \"cd services/api-gateway && npm run build\" \"cd services/user-service && npm run build\" \"cd services/qr-service && npm run build\" \"cd services/analytics-service && npm run build\" \"cd services/file-service && npm run build\" \"cd services/notification-service && npm run build\"",
+    "test": "npm run test:shared && npm run test:services",
+    "test:shared": "cd shared && npm run test",
+    "test:services": "concurrently \"cd services/api-gateway && npm run test\" \"cd services/user-service && npm run test\" \"cd services/qr-service && npm run test\" \"cd services/analytics-service && npm run test\" \"cd services/file-service && npm run test\" \"cd services/notification-service && npm run test\"",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "setup": "npm install && npm run setup:services && npm run setup:shared",
+    "setup:services": "cd services/api-gateway && npm install && cd ../user-service && npm install && cd ../qr-service && npm install && cd ../analytics-service && npm install && cd ../file-service && npm install && cd ../notification-service && npm install",
+    "setup:shared": "cd shared && npm install"
+  },
+  "keywords": ["qr-code", "saas", "microservices", "typescript", "node.js"],
+  "author": "QR SaaS Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "@types/node": "^20.8.0",
+    "typescript": "^5.2.2"
+  },
+  "workspaces": [
+    "shared",
+    "services/*"
+  ]
+}

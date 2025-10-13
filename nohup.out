@@ -1,0 +1,215 @@
+
+> qr-saas-platform@1.0.0 dev
+> concurrently "npm run dev:gateway" "npm run dev:user" "npm run dev:qr" "npm run dev:analytics" "npm run dev:file" "npm run dev:notification"
+
+[1] 
+[1] > qr-saas-platform@1.0.0 dev:user
+[1] > cd services/user-service && npm run dev
+[1] 
+[4] 
+[4] > qr-saas-platform@1.0.0 dev:file
+[4] > cd services/file-service && npm run dev
+[4] 
+[2] 
+[2] > qr-saas-platform@1.0.0 dev:qr
+[2] > cd services/qr-service && npm run dev
+[2] 
+[3] 
+[3] > qr-saas-platform@1.0.0 dev:analytics
+[3] > cd services/analytics-service && npm run dev
+[3] 
+[0] 
+[0] > qr-saas-platform@1.0.0 dev:gateway
+[0] > cd services/api-gateway && npm run dev
+[0] 
+[5] 
+[5] > qr-saas-platform@1.0.0 dev:notification
+[5] > cd services/notification-service && npm run dev
+[5] 
+[4] 
+[4] > @qr-saas/file-service@1.0.0 dev
+[4] > nodemon --exec ts-node src/index.ts
+[4] 
+[1] 
+[1] > @qr-saas/user-service@1.0.0 dev
+[1] > nodemon src/index.js
+[1] 
+[0] 
+[0] > @qr-saas/api-gateway@1.0.0 dev
+[0] > nodemon --exec ts-node src/index.ts
+[0] 
+[2] 
+[2] > @qr-saas/qr-service@1.0.0 dev
+[2] > nodemon --exec ts-node src/index.ts
+[2] 
+[3] 
+[3] > @qr-saas/analytics-service@1.0.0 dev
+[3] > nodemon --exec ts-node src/index.ts
+[3] 
+[5] 
+[5] > @qr-saas/notification-service@1.0.0 dev
+[5] > nodemon --exec ts-node src/index.ts
+[5] 
+[2] [33m[nodemon] 3.1.10[39m
+[2] [33m[nodemon] to restart at any time, enter `rs`[39m
+[2] [33m[nodemon] watching path(s): *.*[39m
+[2] [33m[nodemon] watching extensions: ts,json[39m
+[2] [32m[nodemon] starting `ts-node src/index.ts`[39m
+[1] [33m[nodemon] 3.1.10[39m
+[4] [33m[nodemon] 3.1.10[39m
+[4] [33m[nodemon] to restart at any time, enter `rs`[39m
+[1] [33m[nodemon] to restart at any time, enter `rs`[39m
+[1] [33m[nodemon] watching path(s): *.*[39m
+[4] [33m[nodemon] watching path(s): *.*[39m
+[4] [33m[nodemon] watching extensions: ts,json[39m
+[1] [33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[4] [32m[nodemon] starting `ts-node src/index.ts`[39m
+[1] [32m[nodemon] starting `node src/index.js`[39m
+[3] [33m[nodemon] 3.1.10[39m
+[3] [33m[nodemon] to restart at any time, enter `rs`[39m
+[3] [33m[nodemon] watching path(s): *.*[39m
+[3] [33m[nodemon] watching extensions: ts,json[39m
+[3] [32m[nodemon] starting `ts-node src/index.ts`[39m
+[0] [33m[nodemon] 3.1.10[39m
+[0] [33m[nodemon] to restart at any time, enter `rs`[39m
+[0] [33m[nodemon] watching path(s): *.*[39m
+[0] [33m[nodemon] watching extensions: ts,json[39m
+[0] [32m[nodemon] starting `ts-node src/index.ts`[39m
+[5] [33m[nodemon] 3.1.10[39m
+[5] [33m[nodemon] to restart at any time, enter `rs`[39m
+[5] [33m[nodemon] watching path(s): *.*[39m
+[5] [33m[nodemon] watching extensions: ts,json[39m
+[5] [32m[nodemon] starting `ts-node src/index.ts`[39m
+[1] node:events:485
+[1]       throw er; // Unhandled 'error' event
+[1]       ^
+[1] 
+[1] Error: listen EADDRINUSE: address already in use :::3001
+[1]     at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+[1]     at listenInCluster (node:net:1996:12)
+[1]     at Server.listen (node:net:2101:7)
+[1]     at app.listen (/private/var/www/qrgeneration/node_modules/express/lib/application.js:635:24)
+[1]     at Object.<anonymous> (/private/var/www/qrgeneration/services/user-service/src/index.js:30:5)
+[1]     at Module._compile (node:internal/modules/cjs/loader:1734:14)
+[1]     at Object..js (node:internal/modules/cjs/loader:1899:10)
+[1]     at Module.load (node:internal/modules/cjs/loader:1469:32)
+[1]     at Module._load (node:internal/modules/cjs/loader:1286:12)
+[1]     at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+[1] Emitted 'error' event on Server instance at:
+[1]     at emitErrorNT (node:net:1975:8)
+[1]     at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+[1]   code: 'EADDRINUSE',
+[1]   errno: -48,
+[1]   syscall: 'listen',
+[1]   address: '::',
+[1]   port: 3001
+[1] }
+[1] 
+[1] Node.js v24.1.0
+[1] [31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[2] Error: listen EADDRINUSE: address already in use :::3002
+[2]     at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+[2]     at listenInCluster (node:net:1996:12)
+[2]     at Server.listen (node:net:2101:7)
+[2]     at app.listen (/private/var/www/qrgeneration/node_modules/express/lib/application.js:635:24)
+[2]     at Object.<anonymous> (/private/var/www/qrgeneration/services/qr-service/src/index.ts:33:5)
+[2]     at Module._compile (node:internal/modules/cjs/loader:1734:14)
+[2]     at Module.m._compile (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1618:23)
+[2]     at loadTS (node:internal/modules/cjs/loader:1826:10)
+[2]     at Object.require.extensions.<computed> [as .ts] (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1621:12)
+[2]     at Module.load (node:internal/modules/cjs/loader:1469:32) {
+[2]   code: 'EADDRINUSE',
+[2]   errno: -48,
+[2]   syscall: 'listen',
+[2]   address: '::',
+[2]   port: 3002
+[2] }
+[2] [31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[3] Error: listen EADDRINUSE: address already in use :::3003
+[3]     at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+[3]     at listenInCluster (node:net:1996:12)
+[3]     at Server.listen (node:net:2101:7)
+[3]     at app.listen (/private/var/www/qrgeneration/node_modules/express/lib/application.js:635:24)
+[3]     at Object.<anonymous> (/private/var/www/qrgeneration/services/analytics-service/src/index.ts:28:5)
+[3]     at Module._compile (node:internal/modules/cjs/loader:1734:14)
+[3]     at Module.m._compile (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1618:23)
+[3]     at loadTS (node:internal/modules/cjs/loader:1826:10)
+[3]     at Object.require.extensions.<computed> [as .ts] (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1621:12)
+[3]     at Module.load (node:internal/modules/cjs/loader:1469:32) {
+[3]   code: 'EADDRINUSE',
+[3]   errno: -48,
+[3]   syscall: 'listen',
+[3]   address: '::',
+[3]   port: 3003
+[3] }
+[4] Error: listen EADDRINUSE: address already in use :::3004
+[4]     at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+[4]     at listenInCluster (node:net:1996:12)
+[4]     at Server.listen (node:net:2101:7)
+[4]     at app.listen (/private/var/www/qrgeneration/node_modules/express/lib/application.js:635:24)
+[4]     at Object.<anonymous> (/private/var/www/qrgeneration/services/file-service/src/index.ts:28:5)
+[4]     at Module._compile (node:internal/modules/cjs/loader:1734:14)
+[4]     at Module.m._compile (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1618:23)
+[4]     at loadTS (node:internal/modules/cjs/loader:1826:10)
+[4]     at Object.require.extensions.<computed> [as .ts] (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1621:12)
+[4]     at Module.load (node:internal/modules/cjs/loader:1469:32) {
+[4]   code: 'EADDRINUSE',
+[4]   errno: -48,
+[4]   syscall: 'listen',
+[4]   address: '::',
+[4]   port: 3004
+[4] }
+[3] [31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[4] [31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[5] Error: listen EADDRINUSE: address already in use :::3005
+[5]     at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+[5]     at listenInCluster (node:net:1996:12)
+[5]     at Server.listen (node:net:2101:7)
+[5]     at app.listen (/private/var/www/qrgeneration/node_modules/express/lib/application.js:635:24)
+[5]     at Object.<anonymous> (/private/var/www/qrgeneration/services/notification-service/src/index.ts:28:5)
+[5]     at Module._compile (node:internal/modules/cjs/loader:1734:14)
+[5]     at Module.m._compile (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1618:23)
+[5]     at loadTS (node:internal/modules/cjs/loader:1826:10)
+[5]     at Object.require.extensions.<computed> [as .ts] (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1621:12)
+[5]     at Module.load (node:internal/modules/cjs/loader:1469:32) {
+[5]   code: 'EADDRINUSE',
+[5]   errno: -48,
+[5]   syscall: 'listen',
+[5]   address: '::',
+[5]   port: 3005
+[5] }
+[5] [31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[0] [HPM] Proxy created: /  -> http://user-service:3001
+[0] [HPM] Proxy rewrite rule created: "^/api/auth" ~> "/auth"
+[0] [HPM] Proxy created: /  -> http://qr-service:3002
+[0] [HPM] Proxy rewrite rule created: "^/api/qr" ~> "/qr"
+[0] [HPM] Proxy created: /  -> http://analytics-service:3003
+[0] [HPM] Proxy rewrite rule created: "^/api/analytics" ~> "/analytics"
+[0] [HPM] Proxy created: /  -> http://file-service:3004
+[0] [HPM] Proxy rewrite rule created: "^/api/files" ~> "/files"
+[0] [HPM] Proxy created: /  -> http://qr-service:3002
+[0] [HPM] Proxy rewrite rule created: "^/r" ~> "/redirect"
+[0] Error: listen EADDRINUSE: address already in use :::3000
+[0]     at Server.setupListenHandle [as _listen2] (node:net:1939:16)
+[0]     at listenInCluster (node:net:1996:12)
+[0]     at Server.listen (node:net:2101:7)
+[0]     at app.listen (/private/var/www/qrgeneration/node_modules/express/lib/application.js:635:24)
+[0]     at Object.<anonymous> (/private/var/www/qrgeneration/services/api-gateway/src/index.ts:56:5)
+[0]     at Module._compile (node:internal/modules/cjs/loader:1734:14)
+[0]     at Module.m._compile (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1618:23)
+[0]     at loadTS (node:internal/modules/cjs/loader:1826:10)
+[0]     at Object.require.extensions.<computed> [as .ts] (/private/var/www/qrgeneration/node_modules/ts-node/src/index.ts:1621:12)
+[0]     at Module.load (node:internal/modules/cjs/loader:1469:32) {
+[0]   code: 'EADDRINUSE',
+[0]   errno: -48,
+[0]   syscall: 'listen',
+[0]   address: '::',
+[0]   port: 3000
+[0] }
+[0] [31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[0] npm run dev:gateway exited with code SIGTERM
+[1] npm run dev:user exited with code SIGTERM
+[3] npm run dev:analytics exited with code SIGTERM
+[4] npm run dev:file exited with code SIGTERM
+[2] npm run dev:qr exited with code SIGTERM
+[5] npm run dev:notification exited with code SIGTERM
