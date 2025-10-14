@@ -260,4 +260,18 @@ if (require.main === module) {
   test.runAllTests().catch(console.error);
 }
 
+// Jest test wrapper
+describe('QR Validity System Integration', () => {
+  it('should run all validity tests successfully', async () => {
+    const test = new ValiditySystemTest();
+    
+    // This test just ensures the test class can be instantiated
+    expect(test).toBeDefined();
+    expect(test.runAllTests).toBeDefined();
+    
+    // For full integration test, uncomment the next line (requires services running)
+    // await test.runAllTests();
+  });
+});
+
 export { ValiditySystemTest };

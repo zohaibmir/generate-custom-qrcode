@@ -1,5 +1,3 @@
-#!/usr/bin/env ts-node
-
 import { QRTemplateService } from '../services/qr-template.service';
 import { Logger } from '../services/logger.service';
 
@@ -82,7 +80,7 @@ async function testTemplateSystem() {
       console.log(`✅ Short ID: ${qrResult.data?.shortId}`);
       console.log(`✅ Target URL: ${qrResult.data?.targetUrl}`);
     } else {
-      console.log('❌ Failed to create QR:', qrResult.error?.message);
+      console.log('❌ Failed to create QR:', qrResult.error);
     }
 
     // Test 6: Test subscription tier filtering
@@ -114,6 +112,13 @@ async function testTemplateSystem() {
     process.exit(1);
   }
 }
+
+// Jest test wrapper
+describe('QR Template System Tests', () => {
+  test('Template system functionality', async () => {
+    await testTemplateSystem();
+  });
+});
 
 if (require.main === module) {
   testTemplateSystem();

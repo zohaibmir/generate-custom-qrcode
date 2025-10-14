@@ -164,6 +164,9 @@ class QRServiceApplication {
     // QR Code routes
     this.setupQRRoutes(qrService);
     
+    // Dynamic QR routes
+    this.setupDynamicQRRoutes();
+    
     // Template routes
     this.setupTemplateRoutes();
 
@@ -440,6 +443,17 @@ class QRServiceApplication {
         this.handleRouteError(error, res, 'TEMPLATE_VALIDATION_FAILED');
       }
     });
+  }
+
+  private setupDynamicQRRoutes(): void {
+    // Import and use the dynamic QR routes
+    try {
+      const dynamicQRRoutes = require('./routes/dynamic-qr.routes').default;
+      this.app.use('/qr', dynamicQRRoutes);
+      this.logger.info('Dynamic QR routes registered successfully');
+    } catch (error) {
+      this.logger.error('Failed to register Dynamic QR routes', { error });
+    }
   }
 
   private extractUserId(req: express.Request): string {

@@ -209,15 +209,185 @@ INSERT INTO subscription_plans (name, price, qr_limit, analytics_retention_days,
 ('Business', 49.00, -1, 1095, '{"customization": "advanced", "api_access": true, "team_features": true, "custom_domains": true, "white_label": true}'),
 ('Enterprise', 199.00, -1, -1, '{"customization": "advanced", "api_access": true, "team_features": true, "custom_domains": true, "white_label": true, "priority_support": true}');
 
--- Function to create default categories for a user
+-- Create default categories for new users
 CREATE OR REPLACE FUNCTION create_default_categories(p_user_id UUID)
 RETURNS VOID AS $$
 BEGIN
-    INSERT INTO qr_categories (user_id, name, description, color, icon, is_default, sort_order) VALUES
-    (p_user_id, 'Business', 'Business and professional QR codes', '#3B82F6', '💼', true, 1),
-    (p_user_id, 'Marketing', 'Marketing campaigns and promotions', '#EF4444', '📈', true, 2),
-    (p_user_id, 'Personal', 'Personal QR codes and contacts', '#10B981', '👤', true, 3),
-    (p_user_id, 'Events', 'Events, gatherings, and RSVPs', '#F59E0B', '🎉', true, 4),
-    (p_user_id, 'Social Media', 'Social media profiles and links', '#8B5CF6', '📱', true, 5);
+    INSERT INTO qr_categories (user_id, name, description, color, icon, is_default, sort_order)
+    VALUES 
+        (p_user_id, 'General', 'Default category for general QR codes', '#6B7280', '📋', true, 0),
+        (p_user_id, 'Business', 'Business-related QR codes', '#3B82F6', '💼', true, 10),
+        (p_user_id, 'Marketing', 'Marketing and promotional QR codes', '#EF4444', '�', true, 20),
+        (p_user_id, 'Events', 'Event-related QR codes', '#10B981', '🎉', true, 30),
+        (p_user_id, 'Personal', 'Personal QR codes', '#8B5CF6', '👤', true, 40)
+    ON CONFLICT DO NOTHING;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ===============================================
+-- DYNAMIC QR CODES SYSTEM TABLES
+-- ===============================================
+
+-- QR Code Content Versions for Dynamic QRs
+CREATE TABLE IF NOT EXISTS qr_content_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL DEFAULT 1,
+    content JSONB NOT NULL,
+    redirect_url TEXT,
+    is_active BOOLEAN DEFAULT true,
+    scheduled_at TIMESTAMP,
+    activated_at TIMESTAMP,
+    deactivated_at TIMESTAMP,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Ensure unique version numbers per QR code
+    UNIQUE(qr_code_id, version_number),
+    -- Only one active version per QR code at a time
+    EXCLUDE (qr_code_id WITH =) WHERE (is_active = true)
+);
+
+-- A/B Testing for Dynamic QRs
+CREATE TABLE IF NOT EXISTS qr_ab_tests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    test_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    variant_a_version_id UUID NOT NULL REFERENCES qr_content_versions(id),
+    variant_b_version_id UUID NOT NULL REFERENCES qr_content_versions(id),
+    traffic_split INTEGER DEFAULT 50 CHECK (traffic_split BETWEEN 0 AND 100),
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'running', 'paused', 'completed')),
+    winner_variant VARCHAR(1) CHECK (winner_variant IN ('A', 'B')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Dynamic QR Redirect Rules
+CREATE TABLE IF NOT EXISTS qr_redirect_rules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    rule_name VARCHAR(255) NOT NULL,
+    rule_type VARCHAR(50) NOT NULL CHECK (rule_type IN ('geographic', 'device', 'time', 'custom')),
+    conditions JSONB NOT NULL,
+    target_version_id UUID NOT NULL REFERENCES qr_content_versions(id),
+    priority INTEGER DEFAULT 0,
+    is_enabled BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Dynamic QR Analytics (Enhanced)
+CREATE TABLE IF NOT EXISTS qr_dynamic_analytics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    version_id UUID REFERENCES qr_content_versions(id),
+    ab_test_id UUID REFERENCES qr_ab_tests(id),
+    variant VARCHAR(1), -- For A/B testing
+    redirect_rule_id UUID REFERENCES qr_redirect_rules(id),
+    user_agent TEXT,
+    ip_address INET,
+    country VARCHAR(2),
+    region VARCHAR(100),
+    city VARCHAR(100),
+    device_type VARCHAR(50),
+    browser VARCHAR(100),
+    os VARCHAR(100),
+    referrer TEXT,
+    conversion_event VARCHAR(100),
+    session_id VARCHAR(255),
+    scan_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Index for performance
+    INDEX idx_dynamic_analytics_qr_code (qr_code_id),
+    INDEX idx_dynamic_analytics_version (version_id),
+    INDEX idx_dynamic_analytics_timestamp (scan_timestamp),
+    INDEX idx_dynamic_analytics_ab_test (ab_test_id, variant)
+);
+
+-- QR Content Scheduling
+CREATE TABLE IF NOT EXISTS qr_content_schedule (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    version_id UUID NOT NULL REFERENCES qr_content_versions(id),
+    schedule_name VARCHAR(255) NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP,
+    repeat_pattern VARCHAR(50), -- 'none', 'daily', 'weekly', 'monthly'
+    repeat_days INTEGER[], -- Days of week for weekly repeat (1-7)
+    timezone VARCHAR(50) DEFAULT 'UTC',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ===============================================
+-- INDEXES FOR DYNAMIC QR PERFORMANCE
+-- ===============================================
+
+-- Content versions indexes
+CREATE INDEX IF NOT EXISTS idx_content_versions_qr_code ON qr_content_versions(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_content_versions_active ON qr_content_versions(qr_code_id, is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_content_versions_scheduled ON qr_content_versions(scheduled_at) WHERE scheduled_at IS NOT NULL;
+
+-- A/B testing indexes  
+CREATE INDEX IF NOT EXISTS idx_ab_tests_qr_code ON qr_ab_tests(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_ab_tests_status ON qr_ab_tests(status) WHERE status = 'running';
+CREATE INDEX IF NOT EXISTS idx_ab_tests_dates ON qr_ab_tests(start_date, end_date);
+
+-- Redirect rules indexes
+CREATE INDEX IF NOT EXISTS idx_redirect_rules_qr_code ON qr_redirect_rules(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_redirect_rules_enabled ON qr_redirect_rules(qr_code_id, is_enabled, priority) WHERE is_enabled = true;
+
+-- Content schedule indexes
+CREATE INDEX IF NOT EXISTS idx_content_schedule_qr_code ON qr_content_schedule(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_content_schedule_active ON qr_content_schedule(is_active, start_time, end_time) WHERE is_active = true;
+
+-- ===============================================
+-- DYNAMIC QR HELPER FUNCTIONS
+-- ===============================================
+
+-- Function to activate scheduled content
+CREATE OR REPLACE FUNCTION activate_scheduled_content()
+RETURNS INTEGER AS $$
+DECLARE
+    activated_count INTEGER := 0;
+BEGIN
+    -- Activate scheduled versions that are due
+    UPDATE qr_content_versions 
+    SET is_active = true, activated_at = CURRENT_TIMESTAMP
+    WHERE scheduled_at IS NOT NULL 
+      AND scheduled_at <= CURRENT_TIMESTAMP 
+      AND is_active = false;
+    
+    GET DIAGNOSTICS activated_count = ROW_COUNT;
+    
+    RETURN activated_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get active content version for QR
+CREATE OR REPLACE FUNCTION get_active_qr_content(p_qr_code_id UUID)
+RETURNS TABLE(
+    version_id UUID,
+    content JSONB,
+    redirect_url TEXT,
+    version_number INTEGER
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        cv.id as version_id,
+        cv.content,
+        cv.redirect_url,
+        cv.version_number
+    FROM qr_content_versions cv
+    WHERE cv.qr_code_id = p_qr_code_id 
+      AND cv.is_active = true
+    ORDER BY cv.version_number DESC
+    LIMIT 1;
 END;
 $$ LANGUAGE plpgsql;

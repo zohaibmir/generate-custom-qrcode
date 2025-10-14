@@ -122,12 +122,8 @@ export interface PaginationOptions {
 export interface ServiceResponse<T> {
   success: boolean;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-    statusCode?: number;
-    details?: any;
-  };
+  message?: string;
+  error?: string;
   metadata?: {
     requestId?: string;
     timestamp?: string;
@@ -402,4 +398,241 @@ export class DatabaseError extends AppError {
     super(message, 500, 'DATABASE_ERROR', details);
     this.name = 'DatabaseError';
   }
+}
+
+export class BusinessLogicError extends AppError {
+  constructor(message: string, details?: any) {
+    super(message, 400, 'BUSINESS_LOGIC_ERROR', details);
+    this.name = 'BusinessLogicError';
+  }
+}
+
+// ===============================================
+// DYNAMIC QR CODES INTERFACES
+// ===============================================
+
+// QR Content Version Interface
+export interface QRContentVersion {
+  id: string;
+  qrCodeId: string;
+  versionNumber: number;
+  content: any; // JSONB content
+  redirectUrl?: string;
+  isActive: boolean;
+  scheduledAt?: string;
+  activatedAt?: string;
+  deactivatedAt?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Create Content Version Request
+export interface CreateContentVersionRequest {
+  content: any;
+  redirectUrl?: string;
+  scheduledAt?: string;
+  isActive?: boolean;
+}
+
+// A/B Test Interface
+export interface QRABTest {
+  id: string;
+  qrCodeId: string;
+  testName: string;
+  description?: string;
+  variantAVersionId: string;
+  variantBVersionId: string;
+  trafficSplit: number; // Percentage for variant A (0-100)
+  startDate: string;
+  endDate?: string;
+  status: 'draft' | 'running' | 'paused' | 'completed';
+  winnerVariant?: 'A' | 'B';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Create A/B Test Request
+export interface CreateABTestRequest {
+  testName: string;
+  description?: string;
+  variantAVersionId: string;
+  variantBVersionId: string;
+  trafficSplit?: number;
+  startDate: string;
+  endDate?: string;
+}
+
+// Redirect Rule Interface
+export interface QRRedirectRule {
+  id: string;
+  qrCodeId: string;
+  ruleName: string;
+  ruleType: 'geographic' | 'device' | 'time' | 'custom';
+  conditions: any; // JSONB conditions
+  targetVersionId: string;
+  priority: number;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Create Redirect Rule Request
+export interface CreateRedirectRuleRequest {
+  ruleName: string;
+  ruleType: 'geographic' | 'device' | 'time' | 'custom';
+  conditions: any;
+  targetVersionId: string;
+  priority?: number;
+  isEnabled?: boolean;
+}
+
+// Content Schedule Interface
+export interface QRContentSchedule {
+  id: string;
+  qrCodeId: string;
+  versionId: string;
+  scheduleName: string;
+  startTime: string;
+  endTime?: string;
+  repeatPattern: 'none' | 'daily' | 'weekly' | 'monthly';
+  repeatDays?: number[]; // Days of week (1-7)
+  timezone: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Create Content Schedule Request
+export interface CreateContentScheduleRequest {
+  versionId: string;
+  scheduleName: string;
+  startTime: string;
+  endTime?: string;
+  repeatPattern?: 'none' | 'daily' | 'weekly' | 'monthly';
+  repeatDays?: number[];
+  timezone?: string;
+  isActive?: boolean;
+}
+
+// Dynamic Analytics Interface
+export interface QRDynamicAnalytics {
+  id: string;
+  qrCodeId: string;
+  versionId?: string;
+  abTestId?: string;
+  variant?: 'A' | 'B';
+  redirectRuleId?: string;
+  userAgent?: string;
+  ipAddress?: string;
+  country?: string;
+  region?: string;
+  city?: string;
+  deviceType?: string;
+  browser?: string;
+  os?: string;
+  referrer?: string;
+  conversionEvent?: string;
+  sessionId?: string;
+  scanTimestamp: string;
+}
+
+// Dynamic QR Query Options
+export interface DynamicQRQueryOptions {
+  includeVersions?: boolean;
+  includeABTests?: boolean;
+  includeRules?: boolean;
+  includeSchedules?: boolean;
+  versionLimit?: number;
+}
+
+// Dynamic QR Statistics
+export interface DynamicQRStats {
+  qrCodeId: string;
+  totalVersions: number;
+  activeVersion: number;
+  totalScans: number;
+  versionsPerformance: Array<{
+    versionId: string;
+    versionNumber: number;
+    scans: number;
+    conversionRate: number;
+  }>;
+  abTestsRunning: number;
+  redirectRulesActive: number;
+  scheduledContent: number;
+}
+
+// Dynamic QR Service Interface
+export interface IDynamicQRService {
+  // Content Version Management
+  createContentVersion(qrCodeId: string, versionData: CreateContentVersionRequest): Promise<ServiceResponse<QRContentVersion>>;
+  getContentVersions(qrCodeId: string): Promise<ServiceResponse<QRContentVersion[]>>;
+  getActiveContentVersion(qrCodeId: string): Promise<ServiceResponse<QRContentVersion | null>>;
+  updateContentVersion(versionId: string, versionData: Partial<CreateContentVersionRequest>): Promise<ServiceResponse<QRContentVersion>>;
+  activateContentVersion(versionId: string): Promise<ServiceResponse<QRContentVersion>>;
+  deactivateContentVersion(versionId: string): Promise<ServiceResponse<QRContentVersion>>;
+  deleteContentVersion(versionId: string): Promise<ServiceResponse<boolean>>;
+
+  // A/B Testing
+  createABTest(qrCodeId: string, testData: CreateABTestRequest): Promise<ServiceResponse<QRABTest>>;
+  getABTests(qrCodeId: string): Promise<ServiceResponse<QRABTest[]>>;
+  updateABTest(testId: string, testData: Partial<CreateABTestRequest>): Promise<ServiceResponse<QRABTest>>;
+  startABTest(testId: string): Promise<ServiceResponse<QRABTest>>;
+  pauseABTest(testId: string): Promise<ServiceResponse<QRABTest>>;
+  completeABTest(testId: string, winnerVariant?: 'A' | 'B'): Promise<ServiceResponse<QRABTest>>;
+  deleteABTest(testId: string): Promise<ServiceResponse<boolean>>;
+
+  // Redirect Rules
+  createRedirectRule(qrCodeId: string, ruleData: CreateRedirectRuleRequest): Promise<ServiceResponse<QRRedirectRule>>;
+  getRedirectRules(qrCodeId: string): Promise<ServiceResponse<QRRedirectRule[]>>;
+  updateRedirectRule(ruleId: string, ruleData: Partial<CreateRedirectRuleRequest>): Promise<ServiceResponse<QRRedirectRule>>;
+  deleteRedirectRule(ruleId: string): Promise<ServiceResponse<boolean>>;
+
+  // Content Scheduling
+  createContentSchedule(qrCodeId: string, scheduleData: CreateContentScheduleRequest): Promise<ServiceResponse<QRContentSchedule>>;
+  getContentSchedules(qrCodeId: string): Promise<ServiceResponse<QRContentSchedule[]>>;
+  updateContentSchedule(scheduleId: string, scheduleData: Partial<CreateContentScheduleRequest>): Promise<ServiceResponse<QRContentSchedule>>;
+  deleteContentSchedule(scheduleId: string): Promise<ServiceResponse<boolean>>;
+
+  // Analytics & Statistics
+  getDynamicQRStats(qrCodeId: string): Promise<ServiceResponse<DynamicQRStats>>;
+  resolveRedirect(qrCodeId: string, context: any): Promise<ServiceResponse<string>>; // Returns redirect URL
+}
+
+// Dynamic QR Repository Interface
+export interface IDynamicQRRepository {
+  // Content Versions
+  createContentVersion(versionData: any): Promise<QRContentVersion>;
+  findContentVersionById(versionId: string): Promise<QRContentVersion | null>;
+  findContentVersionsByQRCode(qrCodeId: string): Promise<QRContentVersion[]>;
+  getActiveContentVersion(qrCodeId: string): Promise<QRContentVersion | null>;
+  updateContentVersion(versionId: string, versionData: Partial<any>): Promise<QRContentVersion>;
+  deleteContentVersion(versionId: string): Promise<boolean>;
+
+  // A/B Tests
+  createABTest(testData: any): Promise<QRABTest>;
+  findABTestById(testId: string): Promise<QRABTest | null>;
+  findABTestsByQRCode(qrCodeId: string): Promise<QRABTest[]>;
+  updateABTest(testId: string, testData: Partial<any>): Promise<QRABTest>;
+  deleteABTest(testId: string): Promise<boolean>;
+
+  // Redirect Rules
+  createRedirectRule(ruleData: any): Promise<QRRedirectRule>;
+  findRedirectRuleById(ruleId: string): Promise<QRRedirectRule | null>;
+  findRedirectRulesByQRCode(qrCodeId: string): Promise<QRRedirectRule[]>;
+  updateRedirectRule(ruleId: string, ruleData: Partial<any>): Promise<QRRedirectRule>;
+  deleteRedirectRule(ruleId: string): Promise<boolean>;
+
+  // Content Schedules
+  createContentSchedule(scheduleData: any): Promise<QRContentSchedule>;
+  findContentScheduleById(scheduleId: string): Promise<QRContentSchedule | null>;
+  findContentSchedulesByQRCode(qrCodeId: string): Promise<QRContentSchedule[]>;
+  updateContentSchedule(scheduleId: string, scheduleData: Partial<any>): Promise<QRContentSchedule>;
+  deleteContentSchedule(scheduleId: string): Promise<boolean>;
+
+  // Analytics
+  recordDynamicAnalytics(analyticsData: any): Promise<QRDynamicAnalytics>;
+  getDynamicAnalytics(qrCodeId: string, options?: any): Promise<QRDynamicAnalytics[]>;
+  getDynamicQRStats(qrCodeId: string): Promise<DynamicQRStats>;
 }

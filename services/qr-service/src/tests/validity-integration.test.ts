@@ -259,4 +259,17 @@ if (require.main === module) {
     });
 }
 
+// Jest test wrapper
+describe('QR Validity API Integration', () => {
+  it('should instantiate integration test class', () => {
+    const test = new ValidityAPIIntegrationTest();
+    
+    expect(test).toBeDefined();
+    expect(test.runAllTests).toBeDefined();
+    
+    // Note: Full integration tests require services to be running
+    // Run with: npm run test:integration
+  });
+});
+
 export { ValidityAPIIntegrationTest };
