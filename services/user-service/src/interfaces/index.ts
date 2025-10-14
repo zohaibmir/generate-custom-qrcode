@@ -1,29 +1,18 @@
 // Clean Architecture Interfaces for User Service
 // Following SOLID principles with proper abstraction layers
 
-// Base interfaces
-export interface ServiceResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    statusCode: number;
-    details?: string;
-  };
-  metadata?: {
-    timestamp: string;
-    requestId?: string;
-    pagination?: PaginationMetadata;
-  };
-}
+// Import shared types and interfaces
+export {
+  ServiceResponse,
+  PaginationParams,
+  ApiResponse,
+  ValidationError,
+  NotFoundError,
+  ConflictError
+} from '@qr-saas/shared';
 
-export interface PaginationOptions {
-  page: number;
-  limit: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
+// Create aliases for consistency
+export type PaginationOptions = PaginationParams;
 
 export interface PaginationMetadata {
   page: number;
