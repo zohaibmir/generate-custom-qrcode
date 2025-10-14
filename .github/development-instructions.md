@@ -94,18 +94,23 @@ This workspace contains a Node.js TypeScript microservices architecture for a QR
 - ✅ **User Service**: Full subscription management integration
 - ✅ **Repository Layer**: Comprehensive data access with analytics and statistics
 - ✅ **Service Layer**: Plan validation, proration calculations, usage tracking
-- ❌ **Payment Integration**: No Stripe or payment gateway implementation (next phase)
+- ❌ **Payment Integration**: Stripe integration (next phase - recommended for SaaS subscriptions)
+
+**✅ COMPLETED SUBSCRIPTION TIERS:**
 - ✅ **Free Tier**: 10 QR codes, 30-day analytics, basic customization
 - ✅ **Pro Tier**: 500 QR codes, 1-year analytics, advanced customization  
 - ✅ **Business Tier**: Unlimited QR codes, 3-year analytics, team features
 - ✅ **Enterprise Tier**: White-label, custom domains, priority support
 
-#### **QR Code Validity & Expiration**
-- **Time-based Expiration**: Set expiry dates for QR codes
-- **Scan Limits**: Maximum number of scans per QR code
-- **Password Protection**: Secure QR codes with passwords
-- **Scheduling**: QR codes active only during specific time periods
-- **Subscription-based Validity**: QRs become inactive when subscription expires
+#### ✅ **QR Code Validity & Expiration** ✅ **COMPLETED**
+- ✅ **Time-based Expiration**: Set expiry dates for QR codes with database storage and validation
+- ✅ **Scan Limits**: Maximum number of scans per QR code with counter tracking
+- ✅ **Password Protection**: Secure QR codes with hashed passwords
+- ✅ **Scheduling**: QR codes active only during specific time periods (daily/weekly schedules)
+- ✅ **Subscription-based Validity**: QRs become inactive when subscription expires
+- ✅ **Comprehensive Validation Service**: Complete QRValidityService with all validation logic
+- ✅ **Database Schema**: Full support with `expires_at`, `max_scans`, `password_hash`, `valid_schedule` fields
+- ✅ **Unit Tests**: Complete test coverage for all validity scenarios
 
 ### Phase 3: Advanced Features 🚀
 #### **Customization & Branding**
