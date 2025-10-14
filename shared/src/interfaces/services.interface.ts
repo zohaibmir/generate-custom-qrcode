@@ -24,9 +24,13 @@ export interface IAnalyticsService {
 }
 
 export interface IFileService {
-  uploadFile(fileData: any): Promise<ServiceResponse>;
-  getFile(id: string): Promise<ServiceResponse>;
-  deleteFile(id: string): Promise<ServiceResponse>;
+  uploadFile(request: any): Promise<ServiceResponse>;
+  getFileById(fileId: string, userId?: string): Promise<any>;
+  downloadFile(fileId: string, userId?: string): Promise<ServiceResponse>;
+  deleteFile(fileId: string, userId: string): Promise<void>;
+  listUserFiles(userId: string, page?: number, limit?: number): Promise<ServiceResponse>;
+  getStorageStats(userId: string): Promise<ServiceResponse>;
+  generatePresignedUrl(fileId: string, userId: string, operation?: string, expiresIn?: number): Promise<ServiceResponse>;
 }
 
 export interface INotificationService {

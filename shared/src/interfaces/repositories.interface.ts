@@ -23,7 +23,22 @@ export interface IAnalyticsRepository {
 }
 
 export interface IFileRepository {
-  save(fileData: any): Promise<any>;
+  create(fileUpload: Omit<any, 'id' | 'createdAt' | 'updatedAt'>): Promise<any>;
   findById(id: string): Promise<any | null>;
+  findByUserId(userId: string, options?: {
+    uploadType?: string;
+    mimeTypes?: string[];
+    limit?: number;
+    offset?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{ files: any[]; total: number }>;
+  update(id: string, updates: Partial<any>): Promise<any | null>;
   delete(id: string): Promise<boolean>;
+  deleteByUserId(userId: string): Promise<number>;
+  getStorageStats(userId?: string): Promise<{
+    totalFiles: number;
+    totalSize: number;
+    byType: Record<string, { count: number; size: number }>;
+  }>;
 }

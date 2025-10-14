@@ -98,10 +98,12 @@ CREATE TABLE file_uploads (
     filename VARCHAR(255) NOT NULL,
     original_name VARCHAR(255) NOT NULL,
     mime_type VARCHAR(100) NOT NULL,
-    file_size INTEGER NOT NULL,
+    file_size BIGINT NOT NULL,
     file_path TEXT NOT NULL,
-    upload_type VARCHAR(50),
-    created_at TIMESTAMP DEFAULT NOW()
+    upload_type VARCHAR(50) DEFAULT 'general',
+    url TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Indexes for performance
@@ -114,6 +116,8 @@ CREATE INDEX idx_scan_events_country ON scan_events(country);
 CREATE INDEX idx_scan_events_platform ON scan_events(platform);
 CREATE INDEX idx_daily_analytics_qr_code_id ON daily_analytics(qr_code_id);
 CREATE INDEX idx_daily_analytics_date ON daily_analytics(date);
+CREATE INDEX idx_file_uploads_user_id ON file_uploads(user_id);
+CREATE INDEX idx_file_uploads_created_at ON file_uploads(created_at);
 
 -- Insert default subscription plans
 INSERT INTO subscription_plans (name, price, qr_limit, analytics_retention_days, features) VALUES 
