@@ -303,8 +303,15 @@ class QRServiceApplication {
 
   private extractUserId(req: express.Request): string {
     // TODO: Extract user ID from JWT token
-    // For now, using the actual user ID from database
-    return 'c327137a-1894-49b3-a265-82b6bd862e14';
+    // For now, extract from request body, query params, or use fallback
+    const userId = req.body?.userId || req.query?.userId || req.headers?.['x-user-id'];
+    
+    if (userId && typeof userId === 'string') {
+      return userId;
+    }
+    
+    // Fallback to existing user ID for testing
+    return '3d695410-eba1-42dd-82e1-dd69b935e7b3';
   }
 
   private handleRouteError(error: any, res: express.Response, defaultCode: string): void {
