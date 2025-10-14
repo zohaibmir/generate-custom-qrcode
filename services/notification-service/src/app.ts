@@ -8,20 +8,36 @@ import { ConsoleNotificationProvider } from './infrastructure/console-notificati
 import { Logger } from './services/logger.service';
 import { TemplateService } from './services/template.service';
 import { NotificationService } from './services/notification.service';
+import { NotificationRepository } from './repositories/notification.repository';
+import { DatabaseConfig } from './config/database.config';
 import { NotificationError, ValidationError } from './interfaces';
 
 const app = express();
-const port = process.env.PORT || 3007;
+const port = process.env.PORT || 3005;
 
-// Initialize dependencies
-const logger = new Logger('notification-service');
-const notificationProvider = new ConsoleNotificationProvider(logger);
-const templateService = new TemplateService(logger);
-const notificationService = new NotificationService(notificationProvider, templateService, logger);
+// Global variables for dependencies
+let notificationService: NotificationService;
+let logger: Logger;
 
-const container = new DependencyContainer();
-container.register('notificationService', notificationService);
-container.register('logger', logger);
+// Initialize dependencies function
+async function initializeDependencies() {
+  logger = new Logger('notification-service');
+
+  // Initialize database
+  const database = DatabaseConfig.initialize(logger);
+  await DatabaseConfig.testConnection();
+
+  const notificationProvider = new ConsoleNotificationProvider(logger);
+  const templateService = new TemplateService(logger);
+  const notificationRepository = new NotificationRepository(database, logger);
+  notificationService = new NotificationService(notificationProvider, notificationRepository, templateService, logger);
+
+  const container = new DependencyContainer();
+  container.register('notificationService', notificationService);
+  container.register('logger', logger);
+
+  logger.info('Dependencies initialized successfully');
+}
 
 // Middleware
 app.use(helmet());
@@ -288,19 +304,32 @@ app.use('*', (req, res) => {
   });
 });
 
-// Start server
-app.listen(port, () => {
-  logger.info(`Notification service started on port ${port}`);
-  logger.info('Available endpoints:', {
-    health: '/health',
-    email: 'POST /email',
-    sms: 'POST /sms',
-    status: 'GET /status/:messageId',
-    userNotifications: 'GET /user/:userId',
-    welcome: 'POST /welcome',
-    passwordReset: 'POST /password-reset',
-    qrCreated: 'POST /qr-created'
-  });
-});
+// Start server function
+async function startServer() {
+  try {
+    await initializeDependencies();
+
+    app.listen(port, () => {
+      logger.info(`🚀 Notification service started successfully on port ${port}`);
+      logger.info('Available endpoints:', {
+        health: '/health',
+        email: 'POST /email',
+        sms: 'POST /sms',
+        status: 'GET /status/:messageId',
+        userNotifications: 'GET /user/:userId',
+        welcome: 'POST /welcome',
+        passwordReset: 'POST /password-reset',
+        qrCreated: 'POST /qr-created'
+      });
+      logger.info('Database persistence enabled for notifications');
+    });
+  } catch (error) {
+    console.error('Failed to start notification service:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();
 
 export default app;

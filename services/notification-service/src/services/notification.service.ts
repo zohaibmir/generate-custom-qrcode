@@ -1,6 +1,7 @@
 import { 
   INotificationService, 
   INotificationProvider, 
+  INotificationRepository,
   ITemplateService,
   ILogger,
   EmailRequest,
@@ -17,6 +18,7 @@ import {
 export class NotificationService implements INotificationService {
   constructor(
     private notificationProvider: INotificationProvider,
+    private notificationRepository: INotificationRepository,
     private templateService: ITemplateService,
     private logger: ILogger
   ) {}
@@ -64,8 +66,22 @@ export class NotificationService implements INotificationService {
       // Send email via provider
       const result = await this.notificationProvider.sendEmail(emailToSend);
 
-      this.logger.info('Email sent successfully', {
+      // Save to database
+      const emailMessage = await this.notificationRepository.saveEmail({
+        to: request.to,
+        from: request.from,
+        subject: emailToSend.subject,
+        body: emailToSend.body,
+        template: request.template,
+        templateData: request.templateData,
+        status: result.status === 'sent' ? 'sent' : 'pending',
+        sentAt: result.status === 'sent' ? new Date() : undefined,
+        deliveredAt: undefined
+      });
+
+      this.logger.info('Email sent and saved successfully', {
         messageId: result.messageId,
+        databaseId: emailMessage.id,
         to: request.to,
         status: result.status
       });
@@ -73,9 +89,9 @@ export class NotificationService implements INotificationService {
       return {
         success: true,
         data: {
-          messageId: result.messageId,
-          status: result.status as 'sent' | 'queued',
-          sentAt: new Date()
+          messageId: emailMessage.id, // Use database ID as messageId
+          status: result.status as NotificationResponse['status'],
+          sentAt: emailMessage.sentAt || new Date()
         }
       };
 
@@ -115,8 +131,19 @@ export class NotificationService implements INotificationService {
       // Send SMS via provider
       const result = await this.notificationProvider.sendSMS(request);
 
-      this.logger.info('SMS sent successfully', {
+      // Save to database
+      const smsMessage = await this.notificationRepository.saveSMS({
+        to: request.to,
+        from: request.from,
+        message: request.message,
+        status: result.status === 'sent' ? 'sent' : 'pending',
+        sentAt: result.status === 'sent' ? new Date() : undefined,
+        deliveredAt: undefined
+      });
+
+      this.logger.info('SMS sent and saved successfully', {
         messageId: result.messageId,
+        databaseId: smsMessage.id,
         to: request.to,
         status: result.status
       });
@@ -124,9 +151,9 @@ export class NotificationService implements INotificationService {
       return {
         success: true,
         data: {
-          messageId: result.messageId,
+          messageId: smsMessage.id, // Use database ID as messageId
           status: result.status as 'sent' | 'queued',
-          sentAt: new Date()
+          sentAt: smsMessage.sentAt || new Date()
         }
       };
 
@@ -152,32 +179,46 @@ export class NotificationService implements INotificationService {
         throw new ValidationError('Message ID is required');
       }
 
-      // Determine message type from messageId prefix
-      const isEmail = messageId.startsWith('email_');
-      const isSMS = messageId.startsWith('sms_');
+      // First try to find email message
+      const emailMessage = await this.notificationRepository.findEmailById(messageId);
+      if (emailMessage) {
+        this.logger.info('Email notification status retrieved from database', {
+          messageId,
+          status: emailMessage.status
+        });
 
-      if (!isEmail && !isSMS) {
-        throw new ValidationError('Invalid message ID format');
+        return {
+          success: true,
+          data: {
+            messageId,
+            status: emailMessage.status,
+            sentAt: emailMessage.sentAt,
+            deliveredAt: emailMessage.deliveredAt
+          }
+        };
       }
 
-      const type = isEmail ? 'email' : 'sms';
-      const statusResult = await this.notificationProvider.getMessageStatus(messageId, type);
-
-      this.logger.info('Notification status retrieved', {
-        messageId,
-        type,
-        status: statusResult.status
-      });
-
-      return {
-        success: true,
-        data: {
+      // Then try to find SMS message
+      const smsMessage = await this.notificationRepository.findSMSById(messageId);
+      if (smsMessage) {
+        this.logger.info('SMS notification status retrieved from database', {
           messageId,
-          status: statusResult.status as NotificationStatus['status'],
-          sentAt: new Date(), // In a real implementation, this would come from the database
-          deliveredAt: statusResult.deliveredAt
-        }
-      };
+          status: smsMessage.status
+        });
+
+        return {
+          success: true,
+          data: {
+            messageId,
+            status: smsMessage.status,
+            sentAt: smsMessage.sentAt,
+            deliveredAt: smsMessage.deliveredAt
+          }
+        };
+      }
+
+      // Message not found
+      throw new ValidationError('Message not found');
 
     } catch (error) {
       this.logger.error('Failed to get notification status', {
@@ -201,11 +242,10 @@ export class NotificationService implements INotificationService {
         throw new ValidationError('User ID is required');
       }
 
-      // For demo purposes, return empty array
-      // In a real implementation, this would query the database
-      const notifications: (EmailMessage | SMSMessage)[] = [];
+      // Get notifications from database
+      const notifications = await this.notificationRepository.getNotificationsByUserId(userId, type);
 
-      this.logger.info('User notifications retrieved', {
+      this.logger.info('User notifications retrieved from database', {
         userId,
         type,
         count: notifications.length

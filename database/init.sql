@@ -4,10 +4,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
+    username VARCHAR(100) UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255),
     subscription_tier VARCHAR(50) DEFAULT 'free',
-    is_email_verified BOOLEAN DEFAULT false,
+    is_verified BOOLEAN DEFAULT false,
+    avatar_url TEXT,
+    preferences JSONB DEFAULT '{}',
+    metadata JSONB DEFAULT '{}',
     email_verification_token VARCHAR(255),
     password_reset_token VARCHAR(255),
     password_reset_expires TIMESTAMP,
@@ -106,7 +110,57 @@ CREATE TABLE file_uploads (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Email Messages (for notification persistence)
+CREATE TABLE email_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    to_email VARCHAR(255) NOT NULL,
+    from_email VARCHAR(255),
+    subject VARCHAR(500) NOT NULL,
+    body TEXT,
+    template_name VARCHAR(100),
+    template_data JSONB,
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'delivered', 'failed')),
+    sent_at TIMESTAMP,
+    delivered_at TIMESTAMP,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- SMS Messages (for notification persistence)
+CREATE TABLE sms_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    to_phone VARCHAR(20) NOT NULL,
+    from_phone VARCHAR(20),
+    message TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'delivered', 'failed')),
+    sent_at TIMESTAMP,
+    delivered_at TIMESTAMP,
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Notification Templates (for future template management)
+CREATE TABLE notification_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) UNIQUE NOT NULL,
+    type VARCHAR(10) NOT NULL CHECK (type IN ('email', 'sms')),
+    subject VARCHAR(500),
+    body TEXT NOT NULL,
+    variables TEXT[], -- Array of variable names
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Indexes for performance
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_email_verification_token ON users(email_verification_token);
+CREATE INDEX idx_users_password_reset_token ON users(password_reset_token);
 CREATE INDEX idx_qr_codes_user_id ON qr_codes(user_id);
 CREATE INDEX idx_qr_codes_short_id ON qr_codes(short_id);
 CREATE INDEX idx_qr_codes_expires_at ON qr_codes(expires_at);
@@ -118,6 +172,14 @@ CREATE INDEX idx_daily_analytics_qr_code_id ON daily_analytics(qr_code_id);
 CREATE INDEX idx_daily_analytics_date ON daily_analytics(date);
 CREATE INDEX idx_file_uploads_user_id ON file_uploads(user_id);
 CREATE INDEX idx_file_uploads_created_at ON file_uploads(created_at);
+CREATE INDEX idx_email_messages_user_id ON email_messages(user_id);
+CREATE INDEX idx_email_messages_status ON email_messages(status);
+CREATE INDEX idx_email_messages_created_at ON email_messages(created_at);
+CREATE INDEX idx_sms_messages_user_id ON sms_messages(user_id);
+CREATE INDEX idx_sms_messages_status ON sms_messages(status);
+CREATE INDEX idx_sms_messages_created_at ON sms_messages(created_at);
+CREATE INDEX idx_notification_templates_name ON notification_templates(name);
+CREATE INDEX idx_notification_templates_type ON notification_templates(type);
 
 -- Insert default subscription plans
 INSERT INTO subscription_plans (name, price, qr_limit, analytics_retention_days, features) VALUES 

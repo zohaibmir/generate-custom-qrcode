@@ -142,11 +142,11 @@ class ApiGatewayApplication {
 
     // Notifications routes - handle both base route and sub-routes
     this.app.all('/api/notifications', async (req, res) => {
-      await this.proxyRequest(req, res, 'notification-service', '/api/notifications', '/notifications');
+      await this.proxyRequest(req, res, 'notification-service', '/api/notifications', '');
     });
     
     this.app.all('/api/notifications/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'notification-service', '/api/notifications', '/notifications');
+      await this.proxyRequest(req, res, 'notification-service', '/api/notifications', '');
     });
 
     // Short URL redirect
@@ -167,10 +167,18 @@ class ApiGatewayApplication {
 
   private async proxyRequest(req: express.Request, res: express.Response, serviceName: string, fromPath: string, toPath: string): Promise<void> {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const targetUrl = `${this.serviceRegistry.getServiceUrl(serviceName)}${req.path.replace(fromPath, toPath)}`;
+    const targetPath = req.path.replace(fromPath, toPath);
+    const targetUrl = `${this.serviceRegistry.getServiceUrl(serviceName)}${targetPath}`;
     
     try {
-      this.logger.info('Proxying request', { requestId, service: serviceName, method: req.method, path: req.path });
+      this.logger.info('Proxying request', { 
+        requestId, 
+        service: serviceName, 
+        method: req.method, 
+        originalPath: req.path,
+        targetPath,
+        targetUrl 
+      });
       
       const response = await fetch(targetUrl, {
         method: req.method,
@@ -186,6 +194,8 @@ class ApiGatewayApplication {
       this.logger.error('Proxy request failed', { 
         requestId, 
         service: serviceName, 
+        originalPath: req.path,
+        targetUrl,
         error: error instanceof Error ? error.message : 'Unknown' 
       });
       res.status(500).json({

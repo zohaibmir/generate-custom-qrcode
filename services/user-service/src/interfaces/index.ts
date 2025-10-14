@@ -1,18 +1,20 @@
 // Clean Architecture Interfaces for User Service
 // Following SOLID principles with proper abstraction layers
 
-// Import shared types and interfaces
-export {
-  ServiceResponse,
-  PaginationParams,
-  ApiResponse,
-  ValidationError,
-  NotFoundError,
-  ConflictError
-} from '@qr-saas/shared';
+// Import shared types (only essential ones to avoid conflicts)
+import { ServiceResponse as SharedServiceResponse, AppError, ValidationError } from '@qr-saas/shared';
 
-// Create aliases for consistency
-export type PaginationOptions = PaginationParams;
+// Re-export for consistency
+export type ServiceResponse<T = any> = SharedServiceResponse<T>;
+export { AppError, ValidationError };
+
+// Basic interfaces needed by user service
+export interface PaginationOptions {
+  page: number;
+  limit: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
 
 export interface PaginationMetadata {
   page: number;
@@ -60,16 +62,16 @@ export interface CreateUserRequest {
   subscription?: 'free' | 'premium' | 'enterprise';
 }
 
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
 export interface UpdateUserRequest {
   username?: string;
   fullName?: string;
   avatar?: string;
   preferences?: Partial<UserPreferences>;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
 }
 
 export interface AuthTokens {
@@ -171,46 +173,10 @@ export interface IHealthChecker {
   }>;
 }
 
-// Error classes
-export class AppError extends Error {
-  constructor(
-    public code: string,
-    public message: string,
-    public statusCode: number = 500,
-    public details?: string
-  ) {
-    super(message);
-    this.name = 'AppError';
-  }
-}
-
-export class ValidationError extends AppError {
-  constructor(message: string, details?: string) {
-    super('VALIDATION_ERROR', message, 400, details);
-  }
-}
-
-export class NotFoundError extends AppError {
-  constructor(message: string, details?: string) {
-    super('NOT_FOUND', message, 404, details);
-  }
-}
-
-export class UnauthorizedError extends AppError {
-  constructor(message: string, details?: string) {
-    super('UNAUTHORIZED', message, 401, details);
-  }
-}
-
-export class ConflictError extends AppError {
-  constructor(message: string, details?: string) {
-    super('CONFLICT', message, 409, details);
-  }
-}
-
+// Additional error classes specific to user service
 export class DatabaseError extends AppError {
   constructor(message: string, details?: string) {
-    super('DATABASE_ERROR', message, 500, details);
+    super(message, 500, 'DATABASE_ERROR', true);
   }
 }
 

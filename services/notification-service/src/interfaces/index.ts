@@ -191,3 +191,10 @@ export class TemplateError extends AppError {
     this.name = 'TemplateError';
   }
 }
+
+export class DatabaseError extends AppError {
+  constructor(message: string, details?: any) {
+    super('DATABASE_ERROR', message, 500, details);
+    this.name = 'DatabaseError';
+  }
+}

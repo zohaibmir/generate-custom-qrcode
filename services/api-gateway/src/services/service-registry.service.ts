@@ -57,6 +57,7 @@ export class ServiceRegistry implements IServiceRegistry {
     if (!service) {
       throw new Error(`Service '${serviceName}' not found in registry`);
     }
+    this.logger.info('Service URL resolved', { serviceName, url: service.url });
     return service.url;
   }
 
