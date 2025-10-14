@@ -57,9 +57,12 @@ export interface QRCode {
   content: any;
   designConfig?: QRDesignConfig;
   targetUrl: string;
-  isActive: boolean;
-  validityConfig?: QRValidityConfig;
-  currentScans: number;
+  is_active: boolean;
+  expires_at?: Date;
+  max_scans?: number;
+  current_scans: number;
+  password_hash?: string;
+  valid_schedule?: ScheduleConfig;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -128,6 +131,8 @@ export interface ServiceResponse<T> {
   metadata?: {
     requestId?: string;
     timestamp?: string;
+    total?: number;
+    category?: string;
     pagination?: {
       total?: number;
       page?: number;
@@ -152,6 +157,132 @@ export interface HealthStatus {
 
 export type QRType = 'url' | 'text' | 'email' | 'phone' | 'sms' | 'wifi' | 'location' | 'vcard';
 export type ImageFormat = 'png' | 'jpg' | 'svg' | 'pdf';
+
+// QR Templates System Interfaces
+export interface IQRTemplateService {
+  getAllTemplates(): Promise<ServiceResponse<QRTemplate[]>>;
+  getTemplateById(id: string): Promise<ServiceResponse<QRTemplate>>;
+  getTemplatesByCategory(category: string): Promise<ServiceResponse<QRTemplate[]>>;
+  createQRFromTemplate(templateId: string, userId: string, customData: any): Promise<ServiceResponse<QRCode>>;
+  validateTemplateData(templateId: string, data: any): Promise<ValidationResult>;
+}
+
+export interface QRTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: QRTemplateCategory;
+  type: QRType;
+  icon: string;
+  isPopular: boolean;
+  isPremium: boolean;
+  requiredSubscriptionTier: SubscriptionTier;
+  defaultConfig: QRDesignConfig;
+  fields: QRTemplateField[];
+  contentStructure: any;
+  examples: QRTemplateExample[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface QRTemplateField {
+  id: string;
+  name: string;
+  label: string;
+  type: 'text' | 'email' | 'url' | 'phone' | 'textarea' | 'select' | 'number' | 'password';
+  required: boolean;
+  placeholder?: string;
+  validation?: QRTemplateFieldValidation;
+  options?: QRTemplateFieldOption[];
+  defaultValue?: any;
+  description?: string;
+}
+
+export interface QRTemplateFieldValidation {
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  min?: number;
+  max?: number;
+  customValidator?: string;
+}
+
+export interface QRTemplateFieldOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface QRTemplateExample {
+  name: string;
+  description: string;
+  data: any;
+  preview?: string;
+}
+
+export type QRTemplateCategory = 
+  | 'business' 
+  | 'marketing' 
+  | 'hospitality' 
+  | 'events' 
+  | 'social' 
+  | 'education' 
+  | 'personal' 
+  | 'ecommerce' 
+  | 'healthcare' 
+  | 'transportation';
+
+export type SubscriptionTier = 'free' | 'pro' | 'business' | 'enterprise';
+
+// QR Validity System Interfaces
+export interface ValidationResult {
+  checkType: 'ACTIVE_STATUS' | 'EXPIRATION' | 'SCAN_LIMIT' | 'PASSWORD' | 'SCHEDULE' | 'TEMPLATE_VALIDATION' | 'FIELD_VALIDATION';
+  isValid: boolean;
+  message: string;
+  details?: any;
+}
+
+export interface QRValidityCheck {
+  isValid: boolean;
+  reason: 'VALID' | 'QR_CODE_INACTIVE' | 'QR_CODE_EXPIRED' | 'SCAN_LIMIT_EXCEEDED' | 'PASSWORD_REQUIRED' | 'QR_CODE_SCHEDULED' | 'VALIDATION_ERROR';
+  message: string;
+  checks: ValidationResult[];
+  expiredAt?: Date;
+  currentScans?: number;
+  maxScans?: number;
+  schedule?: ScheduleConfig;
+}
+
+export interface ScanAttemptResult {
+  success: boolean;
+  canScan: boolean;
+  reason: string;
+  message: string;
+  newScanCount?: number;
+  validityCheck?: QRValidityCheck;
+}
+
+export interface ScheduleConfig {
+  dailyHours?: {
+    startHour?: number;
+    startMinute?: number;
+    endHour?: number;
+    endMinute?: number;
+  };
+  weeklyDays?: number[]; // 0 = Sunday, 1 = Monday, etc.
+  dateRange?: {
+    startDate?: string;
+    endDate?: string;
+  };
+}
+
+export interface ValidityConfig {
+  maxExpirationDays: number | null;
+  maxScanLimit: number | null;
+  allowPasswordProtection: boolean;
+  allowScheduling: boolean;
+  allowUnlimitedScans: boolean;
+}
 
 // Error classes
 export class AppError extends Error {

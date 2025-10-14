@@ -369,3 +369,262 @@
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+
+/**
+ * @swagger
+ * /api/qr/{shortId}/validate:
+ *   get:
+ *     summary: Validate QR code without scanning
+ *     description: Check if a QR code is valid for scanning without incrementing the scan count
+ *     tags: [QR Codes]
+ *     parameters:
+ *       - in: path
+ *         name: shortId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Short ID for the QR code
+ *         example: "abc123"
+ *       - in: query
+ *         name: password
+ *         schema:
+ *           type: string
+ *         description: Password for protected QR code
+ *     responses:
+ *       200:
+ *         description: QR code validation result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     isValid:
+ *                       type: boolean
+ *                       description: Whether the QR code is valid for scanning
+ *                     reason:
+ *                       type: string
+ *                       enum: [VALID, QR_CODE_INACTIVE, QR_CODE_EXPIRED, SCAN_LIMIT_EXCEEDED, PASSWORD_REQUIRED, QR_CODE_SCHEDULED, VALIDATION_ERROR]
+ *                     message:
+ *                       type: string
+ *                       description: Human-readable validation message
+ *                     checks:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           checkType:
+ *                             type: string
+ *                           isValid:
+ *                             type: boolean
+ *                           message:
+ *                             type: string
+ *                           details:
+ *                             type: object
+ *                     expiredAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Expiration date if expired
+ *                     currentScans:
+ *                       type: number
+ *                       description: Current scan count
+ *                     maxScans:
+ *                       type: number
+ *                       description: Maximum allowed scans
+ *       404:
+ *         description: QR code not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /api/qr/{id}/validity:
+ *   put:
+ *     summary: Update QR code validity settings
+ *     description: Update expiration, scan limits, password protection, and scheduling
+ *     tags: [QR Codes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: QR code ID
+ *       - in: header
+ *         name: x-subscription-tier
+ *         schema:
+ *           type: string
+ *           enum: [free, pro, business, enterprise]
+ *         description: User's subscription tier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               expires_at:
+ *                 type: string
+ *                 format: date-time
+ *                 description: QR code expiration date
+ *                 example: "2025-12-31T23:59:59.000Z"
+ *               max_scans:
+ *                 type: number
+ *                 description: Maximum number of scans allowed
+ *                 minimum: 1
+ *                 example: 100
+ *               password:
+ *                 type: string
+ *                 description: Password to protect QR code
+ *                 minLength: 4
+ *                 example: "secret123"
+ *               valid_schedule:
+ *                 type: object
+ *                 description: Schedule when QR code is active
+ *                 properties:
+ *                   dailyHours:
+ *                     type: object
+ *                     properties:
+ *                       startHour:
+ *                         type: number
+ *                         minimum: 0
+ *                         maximum: 23
+ *                       startMinute:
+ *                         type: number
+ *                         minimum: 0
+ *                         maximum: 59
+ *                       endHour:
+ *                         type: number
+ *                         minimum: 0
+ *                         maximum: 23
+ *                       endMinute:
+ *                         type: number
+ *                         minimum: 0
+ *                         maximum: 59
+ *                   weeklyDays:
+ *                     type: array
+ *                     items:
+ *                       type: number
+ *                       minimum: 0
+ *                       maximum: 6
+ *                     description: Days of week (0=Sunday, 1=Monday, etc.)
+ *                   dateRange:
+ *                     type: object
+ *                     properties:
+ *                       startDate:
+ *                         type: string
+ *                         format: date
+ *                       endDate:
+ *                         type: string
+ *                         format: date
+ *               is_active:
+ *                 type: boolean
+ *                 description: Whether QR code is active
+ *     responses:
+ *       200:
+ *         description: QR code validity settings updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/QRCode'
+ *       400:
+ *         description: Invalid validity parameters or subscription limits exceeded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: object
+ *                   properties:
+ *                     code:
+ *                       type: string
+ *                       example: "VALIDATION_ERROR"
+ *                     message:
+ *                       type: string
+ *                       example: "Invalid validity parameters"
+ *                     details:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["Expiration date cannot exceed 30 days for free tier"]
+ *       404:
+ *         description: QR code not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @swagger
+ * /api/validity-limits/{tier}:
+ *   get:
+ *     summary: Get validity limits for subscription tier
+ *     description: Retrieve the validity configuration limits for a specific subscription tier
+ *     tags: [QR Codes]
+ *     parameters:
+ *       - in: path
+ *         name: tier
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [free, pro, business, enterprise]
+ *         description: Subscription tier
+ *     responses:
+ *       200:
+ *         description: Validity limits for the subscription tier
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     maxExpirationDays:
+ *                       type: number
+ *                       nullable: true
+ *                       description: Maximum days QR code can be valid (null = unlimited)
+ *                     maxScanLimit:
+ *                       type: number
+ *                       nullable: true
+ *                       description: Maximum scans allowed (null = unlimited)
+ *                     allowPasswordProtection:
+ *                       type: boolean
+ *                       description: Whether password protection is allowed
+ *                     allowScheduling:
+ *                       type: boolean
+ *                       description: Whether scheduling is allowed
+ *                     allowUnlimitedScans:
+ *                       type: boolean
+ *                       description: Whether unlimited scans are allowed
+ *               example:
+ *                 success: true
+ *                 data:
+ *                   maxExpirationDays: 30
+ *                   maxScanLimit: 100
+ *                   allowPasswordProtection: false
+ *                   allowScheduling: false
+ *                   allowUnlimitedScans: false
+ */

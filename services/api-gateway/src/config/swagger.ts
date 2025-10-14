@@ -175,22 +175,57 @@ Import the included Postman collection for comprehensive API testing.
             format: 'uri',
             description: 'Redirect URL for this QR code'
           },
-          isActive: {
+          is_active: {
             type: 'boolean',
             description: 'Whether QR code is active'
           },
-          scanLimit: {
+          expires_at: {
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+            description: 'QR code expiration date (null for no expiration)'
+          },
+          max_scans: {
             type: 'number',
+            nullable: true,
             description: 'Maximum allowed scans (null for unlimited)'
           },
-          currentScans: {
+          current_scans: {
             type: 'number',
             description: 'Current scan count'
           },
-          expiresAt: {
+          password_hash: {
             type: 'string',
-            format: 'date-time',
-            description: 'Expiration date (null for no expiration)'
+            nullable: true,
+            description: 'Password hash for protected QR codes (null if not protected)'
+          },
+          valid_schedule: {
+            type: 'object',
+            nullable: true,
+            description: 'Schedule configuration for when QR code is active (stored as JSONB)',
+            properties: {
+              dailyHours: {
+                type: 'object',
+                properties: {
+                  startHour: { type: 'number', minimum: 0, maximum: 23 },
+                  startMinute: { type: 'number', minimum: 0, maximum: 59 },
+                  endHour: { type: 'number', minimum: 0, maximum: 23 },
+                  endMinute: { type: 'number', minimum: 0, maximum: 59 }
+                }
+              },
+              weeklyDays: {
+                type: 'array',
+                items: { type: 'number', minimum: 0, maximum: 6 },
+                description: 'Days of week (0=Sunday, 1=Monday, etc.)'
+              },
+              dateRange: {
+                type: 'object',
+                properties: {
+                  startDate: { type: 'string', format: 'date' },
+                  endDate: { type: 'string', format: 'date' }
+                }
+              }
+            }
           },
           createdAt: {
             type: 'string',
@@ -371,6 +406,10 @@ Import the included Postman collection for comprehensive API testing.
     {
       name: 'Notifications',
       description: 'Email and SMS notifications with database persistence'
+    },
+    {
+      name: 'Templates',
+      description: 'QR code templates for quick generation with pre-configured settings'
     }
   ]
 };

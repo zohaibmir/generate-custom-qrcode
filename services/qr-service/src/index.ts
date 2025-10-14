@@ -62,8 +62,11 @@ class QRServiceApplication {
       
       // Register services
       const qrService = new QRService(qrRepository, qrGenerator, shortIdGenerator, this.logger);
+      const { QRTemplateService } = require('./services/qr-template.service');
+      const qrTemplateService = new QRTemplateService(this.logger, qrService);
       const healthChecker = new HealthChecker(this.logger, this.container);
       this.container.register('qrService', qrService);
+      this.container.register('qrTemplateService', qrTemplateService);
       this.container.register('healthChecker', healthChecker);
       
       this.logger.info('Clean architecture dependencies initialized', {
@@ -160,6 +163,9 @@ class QRServiceApplication {
 
     // QR Code routes
     this.setupQRRoutes(qrService);
+    
+    // Template routes
+    this.setupTemplateRoutes();
 
     // 404 handler
     this.app.use('*', (req, res) => {
@@ -275,28 +281,163 @@ class QRServiceApplication {
       }
     });
 
-    // Redirect endpoint
+    // Redirect endpoint (with validity checking)
     this.app.get('/redirect/:shortId', async (req, res) => {
       try {
-        const result = await qrService.getQRByShortId(req.params.shortId);
+        const password = req.query.password as string;
+        const result = await (qrService as any).processScan(req.params.shortId, password);
         
-        if (result.success && result.data) {
-          // TODO: Implement analytics tracking here
-          this.logger.info('QR redirect accessed', { 
-            shortId: req.params.shortId,
-            qrId: result.data.id 
-          });
+        if (result.success && result.data?.canScan) {
+          // Get the QR data for redirect
+          const qrResult = await qrService.getQRByShortId(req.params.shortId);
           
-          res.json({ 
-            message: `Redirect for ${req.params.shortId}`, 
-            qr: result.data 
-          });
+          if (qrResult.success && qrResult.data) {
+            this.logger.info('QR scan successful', { 
+              shortId: req.params.shortId,
+              qrId: qrResult.data.id,
+              scans: result.data.newScanCount
+            });
+            
+            // In production, this would redirect to the actual URL
+            res.json({ 
+              success: true,
+              message: 'QR scan successful',
+              redirectTo: qrResult.data.targetUrl,
+              scans: result.data.newScanCount
+            });
+          } else {
+            res.status(404).json({
+              success: false,
+              error: { message: 'QR code not found' }
+            });
+          }
         } else {
-          res.status(404).send('QR code not found');
+          // QR scan was blocked
+          res.status(403).json({
+            success: false,
+            error: {
+              message: result.data?.message || 'QR code scan not allowed',
+              reason: result.data?.reason,
+              validityCheck: result.data?.validityCheck
+            }
+          });
         }
         
       } catch (error) {
         this.handleRouteError(error, res, 'QR_REDIRECT_FAILED');
+      }
+    });
+
+    // Validate QR Code (check if scannable without incrementing count)
+    this.app.get('/qr/:shortId/validate', async (req, res) => {
+      try {
+        const password = req.query.password as string;
+        const result = await (qrService as any).validateQRForScan(req.params.shortId, password);
+        
+        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
+        res.status(statusCode).json(result);
+        
+      } catch (error) {
+        this.handleRouteError(error, res, 'QR_VALIDATION_FAILED');
+      }
+    });
+
+    // Update QR Validity Settings
+    this.app.put('/qr/:id/validity', async (req, res) => {
+      try {
+        const userId = this.extractUserId(req);
+        const userTier = req.headers['x-subscription-tier'] as string || 'free';
+        
+        const result = await (qrService as any).updateValiditySettings(
+          req.params.id, 
+          req.body,
+          userTier
+        );
+        
+        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
+        res.status(statusCode).json(result);
+        
+      } catch (error) {
+        this.handleRouteError(error, res, 'VALIDITY_UPDATE_FAILED');
+      }
+    });
+
+    // Get Validity Limits for Subscription Tier
+    this.app.get('/validity-limits/:tier', async (req, res) => {
+      try {
+        const result = (qrService as any).getValidityLimits(req.params.tier);
+        
+        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
+        res.status(statusCode).json(result);
+        
+      } catch (error) {
+        this.handleRouteError(error, res, 'LIMITS_FETCH_FAILED');
+      }
+    });
+  }
+
+  private setupTemplateRoutes(): void {
+    const templateService = this.container.resolve<any>('qrTemplateService');
+
+    // Get all templates
+    this.app.get('/templates', async (req, res) => {
+      try {
+        const result = await templateService.getAllTemplates();
+        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
+        res.status(statusCode).json(result);
+      } catch (error) {
+        this.handleRouteError(error, res, 'TEMPLATE_FETCH_FAILED');
+      }
+    });
+
+    // Get templates by category
+    this.app.get('/templates/category/:category', async (req, res) => {
+      try {
+        const result = await templateService.getTemplatesByCategory(req.params.category);
+        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
+        res.status(statusCode).json(result);
+      } catch (error) {
+        this.handleRouteError(error, res, 'TEMPLATE_FETCH_FAILED');
+      }
+    });
+
+    // Get template by ID
+    this.app.get('/templates/:id', async (req, res) => {
+      try {
+        const result = await templateService.getTemplateById(req.params.id);
+        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
+        res.status(statusCode).json(result);
+      } catch (error) {
+        this.handleRouteError(error, res, 'TEMPLATE_FETCH_FAILED');
+      }
+    });
+
+    // Create QR from template
+    this.app.post('/templates/:id/generate', async (req, res) => {
+      try {
+        const userId = this.extractUserId(req);
+        const result = await templateService.createQRFromTemplate(
+          req.params.id, 
+          userId, 
+          req.body
+        );
+        const statusCode = result.success ? 201 : (result.error?.statusCode || 500);
+        res.status(statusCode).json(result);
+      } catch (error) {
+        this.handleRouteError(error, res, 'TEMPLATE_QR_CREATION_FAILED');
+      }
+    });
+
+    // Validate template data
+    this.app.post('/templates/:id/validate', async (req, res) => {
+      try {
+        const result = await templateService.validateTemplateData(req.params.id, req.body);
+        res.status(200).json({
+          success: true,
+          data: result
+        });
+      } catch (error) {
+        this.handleRouteError(error, res, 'TEMPLATE_VALIDATION_FAILED');
       }
     });
   }

@@ -12,6 +12,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest",
+    "test:validity": "ts-node src/tests/run-validity-tests.ts",
+    "test:templates": "ts-node src/tests/template-system.test.ts",
+    "test:integration": "npm install axios && ts-node src/tests/validity-integration.test.ts",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
   },
@@ -34,6 +37,7 @@
     "@types/node": "^20.8.0",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
+    "axios": "^1.6.0",
     "eslint": "^8.51.0",
     "jest": "^29.7.0",
     "nodemon": "^3.0.1",

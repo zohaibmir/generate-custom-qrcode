@@ -186,6 +186,15 @@ class ApiGatewayApplication {
       await this.proxyRequest(req, res, 'qr-service', '/api/qr', '/qr');
     });
 
+    // Template routes - handle both base route and sub-routes
+    this.app.all('/api/templates', async (req, res) => {
+      await this.proxyRequest(req, res, 'qr-service', '/api/templates', '/templates');
+    });
+    
+    this.app.all('/api/templates/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'qr-service', '/api/templates', '/templates');
+    });
+
     // Analytics routes - handle both base route and sub-routes
     this.app.all('/api/analytics', async (req, res) => {
       await this.proxyRequest(req, res, 'analytics-service', '/api/analytics', '/analytics');
@@ -213,18 +222,67 @@ class ApiGatewayApplication {
       await this.proxyRequest(req, res, 'notification-service', '/api/notifications', '');
     });
 
-    // Short URL redirect
+    // Short URL redirect with validity checking
     this.app.get('/r/:shortId', async (req, res) => {
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const targetUrl = `${this.serviceRegistry.getServiceUrl('qr-service')}/redirect/${req.params.shortId}`;
+      const password = req.query.password as string;
+      const targetUrl = `${this.serviceRegistry.getServiceUrl('qr-service')}/redirect/${req.params.shortId}${password ? `?password=${encodeURIComponent(password)}` : ''}`;
       
       try {
+        this.logger.info('QR redirect attempt', { 
+          requestId, 
+          shortId: req.params.shortId,
+          hasPassword: !!password,
+          userAgent: req.get('User-Agent'),
+          ip: req.ip
+        });
+
         const response = await fetch(targetUrl);
-        const data = await response.json();
-        res.status(response.status).json(data);
+        const data = await response.json() as any;
+        
+        if (data.success && data.redirectTo) {
+          // Log successful scan for analytics
+          this.logger.info('QR scan successful', {
+            requestId,
+            shortId: req.params.shortId,
+            scans: data.scans,
+            redirectTo: data.redirectTo
+          });
+          
+          // In production, perform actual redirect
+          // res.redirect(data.redirectTo);
+          
+          // For now, return the redirect info
+          res.status(200).json({
+            success: true,
+            message: 'QR code is valid',
+            redirectTo: data.redirectTo,
+            scans: data.scans
+          });
+        } else {
+          // Handle blocked scans (expired, limit exceeded, etc.)
+          this.logger.warn('QR scan blocked', {
+            requestId,
+            shortId: req.params.shortId,
+            reason: data.error?.reason,
+            message: data.error?.message
+          });
+          
+          res.status(response.status).json(data);
+        }
       } catch (error) {
-        this.logger.error('Redirect proxy failed', { requestId, error });
-        res.status(500).json({ success: false, error: { code: 'REDIRECT_ERROR', message: 'Redirect failed' }});
+        this.logger.error('Redirect proxy failed', { 
+          requestId, 
+          shortId: req.params.shortId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        res.status(500).json({ 
+          success: false, 
+          error: { 
+            code: 'REDIRECT_ERROR', 
+            message: 'QR redirect failed' 
+          }
+        });
       }
     });
   }

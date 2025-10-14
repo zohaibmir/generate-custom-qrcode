@@ -11,16 +11,25 @@ import {
   ImageFormat,
   NotFoundError, 
   ValidationError,
-  AppError 
+  AppError,
+  QRValidityCheck,
+  ScanAttemptResult,
+  ScheduleConfig
 } from '../interfaces';
+import { QRValidityService } from './qr-validity.service';
+import { Logger } from './logger.service';
 
 export class QRService implements IQRService {
+  private validityService: QRValidityService;
+
   constructor(
     private qrRepository: IQRRepository,
     private qrGenerator: IQRGenerator,
     private shortIdGenerator: IShortIdGenerator,
     private logger: ILogger
-  ) {}
+  ) {
+    this.validityService = new QRValidityService(logger);
+  }
 
   async createQR(userId: string, qrData: CreateQRRequest): Promise<ServiceResponse<QRCode>> {
     try {
@@ -288,6 +297,206 @@ export class QRService implements IQRService {
         error: {
           code: 'QR_DELETE_FAILED',
           message: 'Failed to delete QR code',
+          statusCode: 500,
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
+  }
+
+  /**
+   * Validate QR code for scanning (check expiry, limits, etc.)
+   */
+  async validateQRForScan(shortId: string, password?: string): Promise<ServiceResponse<QRValidityCheck>> {
+    try {
+      const qrCode = await this.qrRepository.findByShortId(shortId);
+      
+      if (!qrCode) {
+        throw new NotFoundError('QR Code');
+      }
+
+      const validityCheck = await this.validityService.validateQRCode(qrCode, password);
+
+      return {
+        success: true,
+        data: validityCheck
+      };
+    } catch (error) {
+      this.logger.error('Failed to validate QR code', {
+        shortId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      if (error instanceof AppError) {
+        return {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+            statusCode: error.statusCode,
+            details: error.details
+          }
+        };
+      }
+
+      return {
+        success: false,
+        error: {
+          code: 'QR_VALIDATION_FAILED',
+          message: 'Failed to validate QR code',
+          statusCode: 500,
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
+  }
+
+  /**
+   * Process a scan attempt (validates and increments counter)
+   */
+  async processScan(shortId: string, password?: string): Promise<ServiceResponse<ScanAttemptResult>> {
+    try {
+      const qrCode = await this.qrRepository.findByShortId(shortId);
+      
+      if (!qrCode) {
+        throw new NotFoundError('QR Code');
+      }
+
+      const scanResult = await this.validityService.processScanAttempt(qrCode, password);
+      
+      // If scan is allowed, increment the counter in database
+      if (scanResult.canScan && scanResult.newScanCount) {
+        await this.qrRepository.incrementScanCount(qrCode.id);
+      }
+
+      return {
+        success: true,
+        data: scanResult
+      };
+    } catch (error) {
+      this.logger.error('Failed to process scan', {
+        shortId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      if (error instanceof AppError) {
+        return {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+            statusCode: error.statusCode,
+            details: error.details
+          }
+        };
+      }
+
+      return {
+        success: false,
+        error: {
+          code: 'SCAN_PROCESSING_FAILED',
+          message: 'Failed to process QR scan',
+          statusCode: 500,
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
+  }
+
+  /**
+   * Update QR validity settings
+   */
+  async updateValiditySettings(
+    id: string, 
+    validitySettings: {
+      expires_at?: Date;
+      max_scans?: number;
+      password?: string;
+      valid_schedule?: ScheduleConfig;
+      is_active?: boolean;
+    },
+    userSubscriptionTier: string = 'free'
+  ): Promise<ServiceResponse<QRCode>> {
+    try {
+      // Validate the settings against subscription limits
+      const validation = this.validityService.validateValidityParams(
+        validitySettings,
+        userSubscriptionTier
+      );
+
+      if (!validation.isValid) {
+        throw new ValidationError('Invalid validity parameters', validation.errors);
+      }
+
+      // Hash password if provided
+      const updateData: any = { ...validitySettings };
+      if (validitySettings.password) {
+        updateData.password_hash = validitySettings.password; // TODO: Implement proper hashing
+        delete updateData.password;
+      }
+
+      const updatedQR = await this.qrRepository.update(id, updateData);
+
+      this.logger.info('QR validity settings updated', {
+        qrId: id,
+        settings: Object.keys(validitySettings),
+        subscriptionTier: userSubscriptionTier
+      });
+
+      return {
+        success: true,
+        data: updatedQR,
+        metadata: {
+          timestamp: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      this.logger.error('Failed to update validity settings', {
+        qrId: id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      if (error instanceof AppError) {
+        return {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+            statusCode: error.statusCode,
+            details: error.details
+          }
+        };
+      }
+
+      return {
+        success: false,
+        error: {
+          code: 'VALIDITY_UPDATE_FAILED',
+          message: 'Failed to update validity settings',
+          statusCode: 500,
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
+  }
+
+  /**
+   * Get validity configuration for subscription tier
+   */
+  getValidityLimits(subscriptionTier: string): ServiceResponse<any> {
+    try {
+      const limits = this.validityService.getValidityConfigForTier(subscriptionTier);
+      
+      return {
+        success: true,
+        data: limits
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'LIMITS_FETCH_FAILED',
+          message: 'Failed to get validity limits',
           statusCode: 500,
           details: error instanceof Error ? error.message : 'Unknown error'
         }
