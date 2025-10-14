@@ -234,6 +234,91 @@ export type QRTemplateCategory =
 
 export type SubscriptionTier = 'free' | 'pro' | 'business' | 'enterprise';
 
+// QR Categories System Interfaces
+export interface IQRCategoryService {
+  createCategory(userId: string, categoryData: CreateCategoryRequest): Promise<ServiceResponse<QRCategory>>;
+  getCategoryById(id: string): Promise<ServiceResponse<QRCategory>>;
+  getUserCategories(userId: string, options?: CategoryQueryOptions): Promise<ServiceResponse<QRCategory[]>>;
+  updateCategory(id: string, categoryData: Partial<CreateCategoryRequest>): Promise<ServiceResponse<QRCategory>>;
+  deleteCategory(id: string, transferToCategory?: string): Promise<ServiceResponse<boolean>>;
+  getCategoryTree(userId: string): Promise<ServiceResponse<QRCategoryTree>>;
+  moveQRsToCategory(qrIds: string[], categoryId: string | null): Promise<ServiceResponse<number>>;
+  getCategoryStats(userId: string): Promise<ServiceResponse<CategoryStats[]>>;
+}
+
+export interface IQRCategoryRepository {
+  create(categoryData: any): Promise<QRCategory>;
+  findById(id: string): Promise<QRCategory | null>;
+  findByUserId(userId: string, options?: CategoryQueryOptions): Promise<QRCategory[]>;
+  update(id: string, categoryData: any): Promise<QRCategory>;
+  delete(id: string): Promise<boolean>;
+  findByParentId(parentId: string | null, userId: string): Promise<QRCategory[]>;
+  moveQRsToCategory(qrIds: string[], categoryId: string | null): Promise<number>;
+  getCategoryWithQRCount(userId: string): Promise<Array<QRCategory & { qrCount: number }>>;
+}
+
+export interface QRCategory {
+  id: string;
+  userId: string;
+  parentId?: string;
+  name: string;
+  description?: string;
+  color: string;
+  icon: string;
+  isDefault: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  description?: string;
+  parentId?: string;
+  color?: string;
+  icon?: string;
+  sortOrder?: number;
+}
+
+export interface CategoryQueryOptions {
+  includeChildren?: boolean;
+  parentId?: string | null;
+  sortBy?: 'name' | 'createdAt' | 'sortOrder';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface QRCategoryTree {
+  categories: QRCategoryTreeNode[];
+  totalCategories: number;
+  maxDepth: number;
+}
+
+export interface QRCategoryTreeNode {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  icon: string;
+  isDefault: boolean;
+  sortOrder: number;
+  qrCount: number;
+  children: QRCategoryTreeNode[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CategoryStats {
+  categoryId: string;
+  categoryName: string;
+  color: string;
+  icon: string;
+  qrCount: number;
+  totalScans: number;
+  activeQRs: number;
+  expiredQRs: number;
+  recentActivity: Date | null;
+}
+
 // QR Validity System Interfaces
 export interface ValidationResult {
   checkType: 'ACTIVE_STATUS' | 'EXPIRATION' | 'SCAN_LIMIT' | 'PASSWORD' | 'SCHEDULE' | 'TEMPLATE_VALIDATION' | 'FIELD_VALIDATION';

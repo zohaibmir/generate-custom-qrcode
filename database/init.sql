@@ -19,10 +19,27 @@ CREATE TABLE users (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- QR Categories table
+CREATE TABLE qr_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_id UUID REFERENCES qr_categories(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    color VARCHAR(7) DEFAULT '#3B82F6',
+    icon VARCHAR(10) DEFAULT '📁',
+    is_default BOOLEAN DEFAULT false,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, name, parent_id)
+);
+
 -- QR Codes table
 CREATE TABLE qr_codes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES qr_categories(id) ON DELETE SET NULL,
     short_id VARCHAR(10) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL,
@@ -161,7 +178,11 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email_verification_token ON users(email_verification_token);
 CREATE INDEX idx_users_password_reset_token ON users(password_reset_token);
+CREATE INDEX idx_qr_categories_user_id ON qr_categories(user_id);
+CREATE INDEX idx_qr_categories_parent_id ON qr_categories(parent_id);
+CREATE INDEX idx_qr_categories_name ON qr_categories(name);
 CREATE INDEX idx_qr_codes_user_id ON qr_codes(user_id);
+CREATE INDEX idx_qr_codes_category_id ON qr_codes(category_id);
 CREATE INDEX idx_qr_codes_short_id ON qr_codes(short_id);
 CREATE INDEX idx_qr_codes_expires_at ON qr_codes(expires_at);
 CREATE INDEX idx_scan_events_qr_code_id ON scan_events(qr_code_id);
@@ -187,3 +208,16 @@ INSERT INTO subscription_plans (name, price, qr_limit, analytics_retention_days,
 ('Pro', 19.00, 500, 365, '{"customization": "advanced", "api_access": true, "team_features": false, "custom_domains": true}'),
 ('Business', 49.00, -1, 1095, '{"customization": "advanced", "api_access": true, "team_features": true, "custom_domains": true, "white_label": true}'),
 ('Enterprise', 199.00, -1, -1, '{"customization": "advanced", "api_access": true, "team_features": true, "custom_domains": true, "white_label": true, "priority_support": true}');
+
+-- Function to create default categories for a user
+CREATE OR REPLACE FUNCTION create_default_categories(p_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    INSERT INTO qr_categories (user_id, name, description, color, icon, is_default, sort_order) VALUES
+    (p_user_id, 'Business', 'Business and professional QR codes', '#3B82F6', '💼', true, 1),
+    (p_user_id, 'Marketing', 'Marketing campaigns and promotions', '#EF4444', '📈', true, 2),
+    (p_user_id, 'Personal', 'Personal QR codes and contacts', '#10B981', '👤', true, 3),
+    (p_user_id, 'Events', 'Events, gatherings, and RSVPs', '#F59E0B', '🎉', true, 4),
+    (p_user_id, 'Social Media', 'Social media profiles and links', '#8B5CF6', '📱', true, 5);
+END;
+$$ LANGUAGE plpgsql;
