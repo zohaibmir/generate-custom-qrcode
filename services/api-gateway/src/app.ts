@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
 
 // Import clean architecture components
 import { Logger } from './services/logger.service';
@@ -11,6 +12,7 @@ import { HealthChecker } from './services/health-checker.service';
 import { HealthController } from './controllers/health.controller';
 import { ErrorHandler } from './middleware/error-handler.middleware';
 import { RequestLogger } from './middleware/request-logger.middleware';
+import { swaggerSpec } from './config/swagger';
 
 dotenv.config({ path: '../../.env' });
 
@@ -65,6 +67,9 @@ class ApiGatewayApplication {
   }
 
   private setupRoutes(): void {
+    // Swagger API Documentation
+    this.setupSwaggerDocumentation();
+
     // Health endpoints with clean architecture
     this.app.get('/health', (req, res) => this.healthController.getHealth(req, res));
     this.app.get('/health/:serviceName', (req, res) => this.healthController.getServiceHealth(req, res));
@@ -74,6 +79,65 @@ class ApiGatewayApplication {
 
     // 404 handler
     this.app.use(this.errorHandler.handle404);
+  }
+
+  private setupSwaggerDocumentation(): void {
+    // Swagger UI setup with custom options
+    const swaggerOptions = {
+      customCss: `
+        .swagger-ui .topbar { display: none }
+        .swagger-ui .info .title { color: #3b82f6; }
+        .swagger-ui .info .description { color: #4b5563; }
+        .swagger-ui .scheme-container { background: #f8fafc; padding: 10px; border-radius: 5px; }
+      `,
+      customSiteTitle: 'QR Code SaaS Platform API Documentation',
+      swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        filter: true,
+        showExtensions: true,
+        showCommonExtensions: true,
+        docExpansion: 'list'
+      }
+    };
+
+    // Main API documentation
+    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerOptions));
+    
+    // JSON specification endpoint
+    this.app.get('/api-docs.json', (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.send(JSON.stringify(swaggerSpec, null, 2));
+    });
+
+    // Welcome route with documentation links
+    this.app.get('/', (req, res) => {
+      res.json({
+        message: '🚀 QR Code SaaS Platform API Gateway',
+        version: '1.0.0',
+        status: 'operational',
+        documentation: {
+          swagger: '/api-docs',
+          json: '/api-docs.json',
+          postman: 'Import postman-collection.json for comprehensive testing'
+        },
+        services: {
+          'user-service': 'User management and authentication',
+          'qr-service': 'QR code generation and management',
+          'analytics-service': 'Scan tracking and analytics',
+          'file-service': 'File upload and storage',
+          'notification-service': 'Email/SMS with database persistence'
+        },
+        database: 'PostgreSQL with complete persistence',
+        architecture: 'Clean Architecture with SOLID principles',
+        health: '/health'
+      });
+    });
+
+    this.logger.info('Swagger documentation configured', { 
+      endpoint: '/api-docs',
+      json: '/api-docs.json' 
+    });
   }
 
   private setupProxyRoutes(): void {

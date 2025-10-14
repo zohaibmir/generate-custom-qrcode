@@ -24,9 +24,29 @@
     "setup:services": "cd services/api-gateway && npm install && cd ../user-service && npm install && cd ../qr-service && npm install && cd ../analytics-service && npm install && cd ../file-service && npm install && cd ../notification-service && npm install",
     "setup:shared": "cd shared && npm install"
   },
-  "keywords": ["qr-code", "saas", "microservices", "typescript", "node.js"],
-  "author": "QR SaaS Team",
+  "keywords": [
+    "qr-code", 
+    "saas", 
+    "microservices", 
+    "typescript", 
+    "node.js", 
+    "clean-architecture", 
+    "api-gateway",
+    "docker"
+  ],
+  "author": {
+    "name": "Zohaib Zahid",
+    "email": "zohaib.mir@gmail.com"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zohaibzahid/qr-saas-platform.git"
+  },
+  "homepage": "https://github.com/zohaibzahid/qr-saas-platform#readme",
+  "bugs": {
+    "url": "https://github.com/zohaibzahid/qr-saas-platform/issues"
+  },
   "devDependencies": {
     "concurrently": "^8.2.2",
     "@types/node": "^20.8.0",

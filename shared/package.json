@@ -4,6 +4,29 @@
   "description": "Shared types, interfaces, and utilities for QR SaaS Platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "author": {
+    "name": "Zohaib Zahid",
+    "email": "zohaib.mir@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "qr-code",
+    "shared",
+    "types",
+    "interfaces",
+    "utilities",
+    "saas",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zohaibzahid/qr-saas-platform.git",
+    "directory": "shared"
+  },
+  "homepage": "https://github.com/zohaibzahid/qr-saas-platform#readme",
+  "bugs": {
+    "url": "https://github.com/zohaibzahid/qr-saas-platform/issues"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

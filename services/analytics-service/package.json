@@ -3,6 +3,28 @@
   "version": "1.0.0",
   "description": "Analytics Service for QR SaaS Platform",
   "main": "dist/index.js",
+  "author": {
+    "name": "Zohaib Zahid",
+    "email": "zohaib.mir@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "qr-code",
+    "analytics",
+    "microservice",
+    "saas",
+    "typescript",
+    "tracking"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zohaibzahid/qr-saas-platform.git",
+    "directory": "services/analytics-service"
+  },
+  "homepage": "https://github.com/zohaibzahid/qr-saas-platform#readme",
+  "bugs": {
+    "url": "https://github.com/zohaibzahid/qr-saas-platform/issues"
+  },
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
