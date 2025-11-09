@@ -7,6 +7,7 @@ import {
   ScheduleConfig,
   ILogger
 } from '../interfaces';
+import * as bcrypt from 'bcrypt';
 
 /**
  * QR Code Validity Service
@@ -368,12 +369,18 @@ export class QRValidityService {
   }
 
   /**
-   * Simple password verification (implement proper hashing in production)
+   * Verify password using bcrypt
    */
   private verifyPassword(providedPassword: string, storedHash: string): boolean {
-    // TODO: Implement proper password hashing with bcrypt
-    // For now, just do a simple comparison
-    return providedPassword === storedHash;
+    try {
+      return bcrypt.compareSync(providedPassword, storedHash);
+    } catch (error) {
+      // If hash comparison fails, log error and return false
+      this.logger.error('Password verification failed', { 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      return false;
+    }
   }
 
   /**

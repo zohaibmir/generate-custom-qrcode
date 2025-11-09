@@ -18,6 +18,7 @@ import {
 } from '../interfaces';
 import { QRValidityService } from './qr-validity.service';
 import { Logger } from './logger.service';
+import * as bcrypt from 'bcrypt';
 
 export class QRService implements IQRService {
   private validityService: QRValidityService;
@@ -31,18 +32,38 @@ export class QRService implements IQRService {
     this.validityService = new QRValidityService(logger);
   }
 
-  async createQR(userId: string, qrData: CreateQRRequest): Promise<ServiceResponse<QRCode>> {
+  async createQR(userId: string, qrData: CreateQRRequest, subscriptionTier?: string): Promise<ServiceResponse<QRCode>> {
     try {
       // Validate input data
       this.validateQRData(qrData);
 
+      // Check plan limits before creation
+      const limitCheck = await this.checkPlanLimits(userId, subscriptionTier || 'free');
+      if (!limitCheck.allowed) {
+        return {
+          success: false,
+          error: {
+            code: 'QR_LIMIT_EXCEEDED',
+            message: limitCheck.message,
+            statusCode: 403,
+            details: {
+              currentCount: limitCheck.currentCount,
+              limit: limitCheck.limit,
+              subscriptionTier: subscriptionTier || 'free'
+            }
+          }
+        };
+      }
+
       this.logger.info('Creating QR code', { 
         userId, 
         type: qrData.type,
-        hasCustomization: !!qrData.customization 
+        hasCustomization: !!qrData.customization,
+        currentCount: limitCheck.currentCount,
+        limit: limitCheck.limit
       });
 
-      const shortId = await this.shortIdGenerator.generate();
+      const shortId = await this.generateUniqueShortId();
       
       const qrCode = await this.qrRepository.create({
         ...qrData,
@@ -433,7 +454,8 @@ export class QRService implements IQRService {
       // Hash password if provided
       const updateData: any = { ...validitySettings };
       if (validitySettings.password) {
-        updateData.password_hash = validitySettings.password; // TODO: Implement proper hashing
+        const saltRounds = 12;
+        updateData.password_hash = await bcrypt.hash(validitySettings.password, saltRounds);
         delete updateData.password;
       }
 
@@ -637,5 +659,109 @@ export class QRService implements IQRService {
     if (swishData.message && swishData.message.length > 50) {
       throw new ValidationError('Swish message cannot exceed 50 characters');
     }
+  }
+
+  /**
+   * Check if user has reached their QR creation limit for their subscription tier
+   */
+  private async checkPlanLimits(userId: string, subscriptionTier: string): Promise<{
+    allowed: boolean;
+    message: string;
+    currentCount: number;
+    limit: number;
+  }> {
+    try {
+      // Get current QR count for user
+      const userQRs = await this.qrRepository.findByUserId(userId, { page: 1, limit: 1000 });
+      const currentCount = userQRs.length;
+
+      // Get plan limits
+      const planLimits = this.getPlanLimits(subscriptionTier);
+      const limit = planLimits.qrLimit;
+
+      // Check if unlimited
+      if (limit === -1) {
+        return {
+          allowed: true,
+          message: 'Unlimited QR codes allowed',
+          currentCount,
+          limit
+        };
+      }
+
+      // Check if at or over limit
+      if (currentCount >= limit) {
+        return {
+          allowed: false,
+          message: `QR code limit reached (${limit}). Upgrade your plan to create more QR codes.`,
+          currentCount,
+          limit
+        };
+      }
+
+      return {
+        allowed: true,
+        message: `${limit - currentCount} QR codes remaining`,
+        currentCount,
+        limit
+      };
+    } catch (error) {
+      this.logger.error('Failed to check plan limits', {
+        userId,
+        subscriptionTier,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      // Default to allowing creation if we can't check limits
+      return {
+        allowed: true,
+        message: 'Unable to verify limits, allowing creation',
+        currentCount: 0,
+        limit: -1
+      };
+    }
+  }
+
+  /**
+   * Get plan limits for subscription tier
+   */
+  private getPlanLimits(subscriptionTier: string): {
+    qrLimit: number;
+    analyticsRetention: number;
+  } {
+    const tierLimits: Record<string, { qrLimit: number; analyticsRetention: number }> = {
+      free: { qrLimit: 10, analyticsRetention: 30 },
+      pro: { qrLimit: 500, analyticsRetention: 365 },
+      business: { qrLimit: -1, analyticsRetention: 1095 }, // unlimited
+      enterprise: { qrLimit: -1, analyticsRetention: -1 } // unlimited
+    };
+
+    return tierLimits[subscriptionTier.toLowerCase()] || tierLimits.free;
+  }
+
+  /**
+   * Generate a unique short ID with collision handling
+   */
+  private async generateUniqueShortId(maxRetries: number = 5): Promise<string> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const shortId = await this.shortIdGenerator.generate();
+      
+      // Check if this short ID already exists
+      const existingQR = await this.qrRepository.findByShortId(shortId);
+      
+      if (!existingQR) {
+        this.logger.debug('Generated unique short ID', { shortId, attempt });
+        return shortId;
+      }
+      
+      this.logger.warn('Short ID collision detected', { shortId, attempt, maxRetries });
+      
+      if (attempt === maxRetries) {
+        this.logger.error('Failed to generate unique short ID after retries', { maxRetries });
+        throw new Error('Unable to generate unique short ID. Please try again.');
+      }
+    }
+    
+    throw new Error('Short ID generation failed unexpectedly');
   }
 }

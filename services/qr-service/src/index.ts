@@ -212,7 +212,8 @@ class QRServiceApplication {
     this.app.post('/qr', async (req, res) => {
       try {
         const userId = this.extractUserId(req); // TODO: Extract from JWT token
-        const result = await qrService.createQR(userId, req.body);
+        const subscriptionTier = req.headers['x-subscription-tier'] as string || 'free';
+        const result = await qrService.createQR(userId, req.body, subscriptionTier);
         
         const statusCode = result.success ? 201 : (result.error?.statusCode || 500);
         res.status(statusCode).json(result);
@@ -299,6 +300,30 @@ class QRServiceApplication {
         
       } catch (error) {
         this.handleRouteError(error, res, 'QR_IMAGE_GENERATION_FAILED');
+      }
+    });
+
+    // Download QR Image
+    this.app.get('/qr/:id/download', async (req, res) => {
+      try {
+        const format = (req.query.format as any) || 'png';
+        const size = parseInt(req.query.size as string) || 512;
+        const result = await qrService.generateQRImage(req.params.id, format);
+        
+        if (result.success && result.data) {
+          res.set({
+            'Content-Type': `image/${format}`,
+            'Content-Disposition': `attachment; filename="qr-code-${req.params.id}.${format}"`,
+            'Content-Length': result.data.length.toString()
+          });
+          res.send(result.data);
+        } else {
+          const statusCode = result.error?.statusCode || 500;
+          res.status(statusCode).json(result);
+        }
+        
+      } catch (error) {
+        this.handleRouteError(error, res, 'QR_DOWNLOAD_FAILED');
       }
     });
 

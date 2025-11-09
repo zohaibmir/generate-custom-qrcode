@@ -447,9 +447,35 @@ class ApiGatewayApplication {
         body: req.method !== 'GET' && req.body ? JSON.stringify(req.body) : undefined
       });
       
-      const data = await response.json();
-      this.logger.info('Request completed', { requestId, service: serviceName, status: response.status });
-      res.status(response.status).json(data);
+      // Handle binary data for image endpoints
+      const isImageEndpoint = req.path.includes('/image') || req.path.includes('/download');
+      
+      if (isImageEndpoint && response.ok) {
+        // For image/binary endpoints, pipe the response directly
+        const contentType = response.headers.get('content-type') || 'application/octet-stream';
+        const contentLength = response.headers.get('content-length');
+        const contentDisposition = response.headers.get('content-disposition');
+        
+        res.setHeader('Content-Type', contentType);
+        if (contentLength) res.setHeader('Content-Length', contentLength);
+        if (contentDisposition) res.setHeader('Content-Disposition', contentDisposition);
+        
+        const buffer = await response.arrayBuffer();
+        this.logger.info('Binary request completed', { 
+          requestId, 
+          service: serviceName, 
+          status: response.status,
+          contentType,
+          size: buffer.byteLength 
+        });
+        
+        res.status(response.status).send(Buffer.from(buffer));
+      } else {
+        // For JSON endpoints, parse as JSON
+        const data = await response.json();
+        this.logger.info('Request completed', { requestId, service: serviceName, status: response.status });
+        res.status(response.status).json(data);
+      }
       
     } catch (error) {
       this.logger.error('Proxy request failed', { 

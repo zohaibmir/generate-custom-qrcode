@@ -27,7 +27,7 @@ export interface IShortIdGenerator {
 }
 
 export interface IQRService {
-  createQR(userId: string, qrData: CreateQRRequest): Promise<ServiceResponse<QRCode>>;
+  createQR(userId: string, qrData: CreateQRRequest, subscriptionTier?: string): Promise<ServiceResponse<QRCode>>;
   getQRById(id: string): Promise<ServiceResponse<QRCode>>;
   getQRByShortId(shortId: string): Promise<ServiceResponse<QRCode>>;
   getUserQRs(userId: string, pagination?: PaginationOptions): Promise<ServiceResponse<QRCode[]>>;
