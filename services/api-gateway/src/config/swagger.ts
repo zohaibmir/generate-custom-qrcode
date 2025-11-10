@@ -13,7 +13,16 @@ const swaggerDefinition: SwaggerDefinition = {
 
 Complete microservices-based QR code generation and analytics platform.
 
-## 🏗️ Architecture
+## 🚀 Revolutionary Advanced QR Features
+**Dynamic Content Resolution** - Serve different content based on:
+- 📱 **Device Type**: Mobile app links for phones, website for desktop
+- � **Location**: Country/region-specific content and geo-fencing
+- ⏰ **Time**: Business hours menus, event schedules, time-sensitive content
+- 🗣️ **Language**: Automatic localization based on user's language preference
+
+This puts you ahead of 90% of QR platforms with intelligent, context-aware QR codes!
+
+## �🏗️ Architecture
 This API Gateway routes requests to the following microservices:
 - **User Service** (Port 3001) - User management, authentication, and payment processing
 - **QR Service** (Port 3002) - QR code generation and management  
@@ -53,6 +62,7 @@ JWT-based authentication system (ready for implementation).
 - ✅ Email/SMS notifications with database storage
 - ✅ Comprehensive analytics and scan tracking
 - ✅ Clean Architecture with SOLID principles
+- 🚀 **NEW: Advanced QR Features** - Dynamic content resolution engine
 
 ## 🧪 Testing
 Import the included Postman collection for comprehensive API testing.
@@ -653,6 +663,205 @@ Import the included Postman collection for comprehensive API testing.
       },
       ...bulkQRSchemas,
       ...paymentSchemas,
+      // Advanced QR Features Schemas
+      QRContentRule: {
+        type: 'object',
+        required: [
+          'rule_name',
+          'rule_type', 
+          'rule_data',
+          'content_type',
+          'content_value'
+        ],
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Unique content rule identifier'
+          },
+          qr_code_id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Associated QR code ID'
+          },
+          rule_name: {
+            type: 'string',
+            description: 'Human-readable rule name',
+            example: 'Mobile Users'
+          },
+          rule_type: {
+            type: 'string',
+            enum: ['time', 'location', 'language', 'device'],
+            description: 'Type of content rule'
+          },
+          rule_data: {
+            type: 'object',
+            description: 'Rule configuration data (JSONB)',
+            example: {
+              device_types: ['mobile']
+            }
+          },
+          content_type: {
+            type: 'string',
+            enum: ['url', 'text', 'landing_page'],
+            description: 'Type of content to serve'
+          },
+          content_value: {
+            type: 'string',
+            description: 'The actual content (URL, text, or landing page ID)',
+            example: 'https://mobile.example.com'
+          },
+          priority: {
+            type: 'integer',
+            default: 0,
+            description: 'Rule priority (higher numbers = higher priority)'
+          },
+          is_active: {
+            type: 'boolean',
+            default: true,
+            description: 'Whether the rule is currently active'
+          },
+          created_at: {
+            type: 'string',
+            format: 'date-time'
+          },
+          updated_at: {
+            type: 'string',
+            format: 'date-time'
+          }
+        }
+      },
+      QRContentRuleStats: {
+        type: 'object',
+        properties: {
+          rule_id: {
+            type: 'string',
+            format: 'uuid'
+          },
+          rule_name: {
+            type: 'string'
+          },
+          total_evaluations: {
+            type: 'integer',
+            description: 'Total times rule was evaluated'
+          },
+          successful_matches: {
+            type: 'integer',
+            description: 'Times rule matched and was used'
+          },
+          match_rate: {
+            type: 'number',
+            format: 'float',
+            description: 'Percentage of evaluations that matched'
+          },
+          avg_execution_time: {
+            type: 'number',
+            format: 'float',
+            description: 'Average execution time in milliseconds'
+          }
+        }
+      },
+      ResolutionRequest: {
+        type: 'object',
+        required: ['device_type'],
+        properties: {
+          device_type: {
+            type: 'string',
+            enum: ['mobile', 'desktop', 'tablet'],
+            description: 'Type of device making the request',
+            example: 'mobile'
+          },
+          country: {
+            type: 'string',
+            description: 'Country code (ISO 3166-1 alpha-2)',
+            example: 'US'
+          },
+          language: {
+            type: 'string',
+            description: 'Language code (ISO 639-1)',
+            example: 'en'
+          },
+          location: {
+            type: 'object',
+            description: 'Geographic coordinates',
+            properties: {
+              latitude: {
+                type: 'number',
+                minimum: -90,
+                maximum: 90
+              },
+              longitude: {
+                type: 'number',
+                minimum: -180,
+                maximum: 180
+              }
+            },
+            example: {
+              latitude: 40.7589,
+              longitude: -73.9851
+            }
+          },
+          timestamp: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Request timestamp (defaults to current time)',
+            example: '2025-11-10T15:30:00Z'
+          },
+          user_agent: {
+            type: 'string',
+            description: 'User agent string',
+            example: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)'
+          }
+        }
+      },
+      ResolutionResult: {
+        type: 'object',
+        properties: {
+          matched_rule: {
+            allOf: [
+              { $ref: '#/components/schemas/QRContentRule' },
+              {
+                type: 'object',
+                properties: {
+                  match_score: {
+                    type: 'number',
+                    format: 'float',
+                    description: 'How well the rule matched (0-1)'
+                  }
+                }
+              }
+            ]
+          },
+          content: {
+            type: 'object',
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['url', 'text', 'landing_page']
+              },
+              value: {
+                type: 'string'
+              },
+              metadata: {
+                type: 'object',
+                description: 'Additional content metadata'
+              }
+            }
+          },
+          fallback_used: {
+            type: 'boolean',
+            description: 'Whether fallback content was used'
+          },
+          execution_time_ms: {
+            type: 'integer',
+            description: 'Time taken to resolve content in milliseconds'
+          },
+          rules_evaluated: {
+            type: 'integer',
+            description: 'Number of rules evaluated'
+          }
+        }
+      },
       LandingPage: {
         type: 'object',
         required: ['name', 'title', 'templateId'],
@@ -1292,6 +1501,10 @@ Import the included Postman collection for comprehensive API testing.
     {
       name: 'QR Codes',
       description: 'QR code generation and management'
+    },
+    {
+      name: 'Advanced QR Features',
+      description: '🚀 Dynamic content resolution based on device, location, time, and language - the revolutionary feature that sets your QR platform apart from 90% of competitors!'
     },
     {
       name: 'Analytics',

@@ -73,6 +73,47 @@ CREATE TABLE qr_codes (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- QR Content Rules for Advanced Dynamic Features
+CREATE TABLE qr_content_rules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    rule_name VARCHAR(255) NOT NULL,
+    rule_type VARCHAR(50) NOT NULL CHECK (rule_type IN ('time', 'location', 'language', 'device')),
+    rule_data JSONB NOT NULL,
+    content_type VARCHAR(50) NOT NULL CHECK (content_type IN ('url', 'text', 'landing_page')),
+    content_value TEXT NOT NULL,
+    priority INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for QR Content Rules
+CREATE INDEX idx_qr_content_rules_qr_id ON qr_content_rules(qr_code_id);
+CREATE INDEX idx_qr_content_rules_type ON qr_content_rules(rule_type);
+CREATE INDEX idx_qr_content_rules_priority ON qr_content_rules(priority DESC);
+CREATE INDEX idx_qr_content_rules_active ON qr_content_rules(is_active);
+
+-- QR Content Rule Analytics
+CREATE TABLE qr_rule_analytics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    rule_id UUID NOT NULL REFERENCES qr_content_rules(id) ON DELETE CASCADE,
+    scan_event_id UUID, -- Links to scan events if available
+    rule_matched BOOLEAN NOT NULL,
+    execution_time_ms INTEGER,
+    device_type VARCHAR(50),
+    country VARCHAR(100),
+    browser VARCHAR(100),
+    timestamp TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for QR Rule Analytics
+CREATE INDEX idx_qr_rule_analytics_qr_id ON qr_rule_analytics(qr_code_id);
+CREATE INDEX idx_qr_rule_analytics_rule_id ON qr_rule_analytics(rule_id);
+CREATE INDEX idx_qr_rule_analytics_timestamp ON qr_rule_analytics(timestamp);
+CREATE INDEX idx_qr_rule_analytics_matched ON qr_rule_analytics(rule_matched);
+
 -- Scan Events for Analytics
 CREATE TABLE scan_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

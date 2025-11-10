@@ -627,4 +627,450 @@
  *                   allowPasswordProtection: false
  *                   allowScheduling: false
  *                   allowUnlimitedScans: false
+
+/**
+ * @swagger
+ * /api/qr/{id}/rules:
+ *   post:
+ *     summary: Create a new content rule for QR code
+ *     description: Add dynamic content rules that serve different content based on device, location, time, or language
+ *     tags: [Advanced QR Features]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: QR code ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rule_name
+ *               - rule_type
+ *               - rule_data
+ *               - content_type
+ *               - content_value
+ *             properties:
+ *               rule_name:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 255
+ *                 description: Human-readable rule name
+ *               rule_type:
+ *                 type: string
+ *                 enum: [time, location, language, device]
+ *                 description: Type of content rule
+ *               rule_data:
+ *                 type: object
+ *                 description: Rule configuration (see schema examples)
+ *               content_type:
+ *                 type: string
+ *                 enum: [url, text, landing_page]
+ *                 description: Type of content to serve
+ *               content_value:
+ *                 type: string
+ *                 description: The actual content
+ *               priority:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 100
+ *                 default: 0
+ *                 description: Rule priority for resolution order
+ *               is_active:
+ *                 type: boolean
+ *                 default: true
+ *                 description: Whether rule is active
+ *           examples:
+ *             device_rule:
+ *               summary: Device-based Content Rule
+ *               value:
+ *                 rule_name: "Mobile Users - App Store"
+ *                 rule_type: "device"
+ *                 rule_data:
+ *                   device_types: ["mobile"]
+ *                 content_type: "url"
+ *                 content_value: "https://app.example.com/download"
+ *                 priority: 1
+ *             location_rule:
+ *               summary: Location-based Content Rule
+ *               value:
+ *                 rule_name: "European Users"
+ *                 rule_type: "location"
+ *                 rule_data:
+ *                   countries: ["GB", "DE", "FR", "ES", "IT"]
+ *                 content_type: "url"
+ *                 content_value: "https://eu.example.com"
+ *                 priority: 2
+ *             time_rule:
+ *               summary: Time-based Content Rule
+ *               value:
+ *                 rule_name: "Business Hours Menu"
+ *                 rule_type: "time"
+ *                 rule_data:
+ *                   schedule:
+ *                     days_of_week: [1, 2, 3, 4, 5]
+ *                     start_time: "09:00"
+ *                     end_time: "17:00"
+ *                     timezone: "America/New_York"
+ *                 content_type: "url"
+ *                 content_value: "https://restaurant.example.com/lunch-menu"
+ *                 priority: 3
+ *             language_rule:
+ *               summary: Language-based Content Rule
+ *               value:
+ *                 rule_name: "Spanish Language Landing"
+ *                 rule_type: "language"
+ *                 rule_data:
+ *                   languages: ["es"]
+ *                   regions: ["ES", "MX", "AR"]
+ *                 content_type: "url"
+ *                 content_value: "https://example.com/es"
+ *                 priority: 1
+ *     responses:
+ *       201:
+ *         description: Content rule created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/QRContentRule'
+ *       400:
+ *         description: Invalid rule data or subscription limits exceeded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: object
+ *                   properties:
+ *                     code:
+ *                       type: string
+ *                       enum: [VALIDATION_ERROR, SUBSCRIPTION_LIMIT_EXCEEDED, RULE_LIMIT_EXCEEDED]
+ *                     message:
+ *                       type: string
+ *                     details:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *   get:
+ *     summary: Get all content rules for QR code
+ *     description: Retrieve all content rules for a specific QR code ordered by priority
+ *     tags: [Advanced QR Features]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: QR code ID
+ *       - in: query
+ *         name: include_stats
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Include rule statistics
+ *     responses:
+ *       200:
+ *         description: List of content rules
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     allOf:
+ *                       - $ref: '#/components/schemas/QRContentRule'
+ *                       - type: object
+ *                         properties:
+ *                           statistics:
+ *                             $ref: '#/components/schemas/QRContentRuleStats'
+ *                 metadata:
+ *                   type: object
+ *                   properties:
+ *                     total_rules:
+ *                       type: integer
+ *                     subscription_limits:
+ *                       type: object
+ *                       properties:
+ *                         max_rules:
+ *                           type: integer
+ *                         current_count:
+ *                           type: integer
+ *                         remaining:
+ *                           type: integer
+ *       404:
+ *         description: QR code not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+
+/**
+ * @swagger
+ * /api/qr/rules/{ruleId}:
+ *   put:
+ *     summary: Update an existing content rule
+ *     description: Modify a content rule's configuration, priority, or active status
+ *     tags: [Advanced QR Features]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ruleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Content rule ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rule_name:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 255
+ *               rule_data:
+ *                 type: object
+ *                 description: Updated rule configuration
+ *               content_type:
+ *                 type: string
+ *                 enum: [url, text, landing_page]
+ *               content_value:
+ *                 type: string
+ *               priority:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 100
+ *               is_active:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Content rule updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/QRContentRule'
+ *       404:
+ *         description: Content rule not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *   delete:
+ *     summary: Delete a content rule
+ *     description: Remove a content rule from the QR code
+ *     tags: [Advanced QR Features]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ruleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Content rule ID
+ *     responses:
+ *       200:
+ *         description: Content rule deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Content rule deleted successfully"
+ *       404:
+ *         description: Content rule not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+
+/**
+ * @swagger
+ * /api/qr/{id}/resolve:
+ *   post:
+ *     summary: 🚀 Resolve dynamic content for QR code
+ *     description: |
+ *       **The core feature of Advanced QR!** 
+ *       
+ *       This endpoint evaluates all content rules for a QR code against the provided scan context 
+ *       and returns the most appropriate content. Rules are evaluated in priority order, and the 
+ *       first matching rule's content is returned.
+ *       
+ *       **Use Cases:**
+ *       - 📱 Serve mobile app download links to mobile users, website to desktop
+ *       - 🌍 Show localized content based on user's country/language  
+ *       - ⏰ Display different menus during lunch vs dinner hours
+ *       - 📍 Provide location-specific information with geo-fencing
+ *       
+ *       **How it works:**
+ *       1. All active rules for the QR code are retrieved
+ *       2. Rules are sorted by priority (highest first)
+ *       3. Each rule is evaluated against the scan context
+ *       4. First matching rule's content is returned
+ *       5. If no rules match, fallback to QR code's default content
+ *       6. Analytics are tracked for performance monitoring
+ *     tags: [Advanced QR Features]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: QR code ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ResolutionRequest'
+ *           examples:
+ *             mobile_user:
+ *               summary: Mobile User from US
+ *               value:
+ *                 device_type: "mobile"
+ *                 country: "US"
+ *                 language: "en"
+ *                 timestamp: "2025-11-10T15:30:00Z"
+ *             international_user:
+ *               summary: Desktop User from Germany
+ *               value:
+ *                 device_type: "desktop"
+ *                 country: "DE"
+ *                 language: "de"
+ *                 timestamp: "2025-11-10T09:45:00Z"
+ *             geofenced_user:
+ *               summary: User Near Store Location
+ *               value:
+ *                 device_type: "mobile"
+ *                 country: "US"
+ *                 language: "en"
+ *                 location:
+ *                   latitude: 40.7589
+ *                   longitude: -73.9851
+ *                 timestamp: "2025-11-10T12:00:00Z"
+ *             business_hours:
+ *               summary: User During Business Hours
+ *               value:
+ *                 device_type: "mobile"
+ *                 country: "US"
+ *                 language: "en"
+ *                 timestamp: "2025-11-10T14:30:00Z"
+ *     responses:
+ *       200:
+ *         description: Dynamic content resolved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ResolutionResult'
+ *             examples:
+ *               matched_rule:
+ *                 summary: Rule Matched - Dynamic Content
+ *                 value:
+ *                   success: true
+ *                   data:
+ *                     matched_rule:
+ *                       id: "123e4567-e89b-12d3-a456-426614174000"
+ *                       rule_name: "Mobile Users - App Store"
+ *                       rule_type: "device"
+ *                       priority: 1
+ *                       match_score: 1.0
+ *                     content:
+ *                       type: "url"
+ *                       value: "https://app.example.com/download"
+ *                       metadata:
+ *                         optimized_for: "mobile"
+ *                         campaign: "mobile_app_promotion"
+ *                     fallback_used: false
+ *                     execution_time_ms: 12
+ *                     rules_evaluated: 3
+ *               fallback_content:
+ *                 summary: No Rules Matched - Fallback Used
+ *                 value:
+ *                   success: true
+ *                   data:
+ *                     matched_rule: null
+ *                     content:
+ *                       type: "url"
+ *                       value: "https://example.com"
+ *                       metadata:
+ *                         source: "qr_default_content"
+ *                     fallback_used: true
+ *                     execution_time_ms: 8
+ *                     rules_evaluated: 2
+ *       404:
+ *         description: QR code not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Content resolution failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: object
+ *                   properties:
+ *                     code:
+ *                       type: string
+ *                       example: "RESOLUTION_ERROR"
+ *                     message:
+ *                       type: string
+ *                       example: "Failed to resolve content for QR code"
+ *                     execution_time_ms:
+ *                       type: integer
+ *                       example: 5000
  */

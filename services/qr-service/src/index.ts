@@ -179,6 +179,9 @@ class QRServiceApplication {
     // QR Code routes
     this.setupQRRoutes(qrService);
     
+    // Advanced QR Features (Content Rules)
+    this.setupContentRulesRoutes();
+    
     // Dynamic QR routes
     this.setupDynamicQRRoutes();
     
@@ -498,6 +501,17 @@ class QRServiceApplication {
       this.logger.info('Bulk QR routes registered successfully');
     } catch (error) {
       this.logger.error('Failed to register Bulk QR routes', { error });
+    }
+  }
+
+  private setupContentRulesRoutes(): void {
+    // Import and use the advanced QR features routes
+    try {
+      const contentRulesRoutes = require('./routes/qr-content-rules.routes').default;
+      this.app.use('/qr', contentRulesRoutes);
+      this.logger.info('Advanced QR Features (Content Rules) routes registered successfully');
+    } catch (error) {
+      this.logger.error('Failed to register Content Rules routes', { error });
     }
   }
 
