@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT Token Generator - QR SaaS Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+        }
+
+        .result-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .result-section h3 {
+            margin-bottom: 15px;
+            color: #374151;
+        }
+
+        .token-display {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #374151;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .copy-btn:hover {
+            background: #4b5563;
+        }
+
+        .payload-display {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+
+        .usage-examples {
+            margin-top: 20px;
+        }
+
+        .usage-examples h4 {
+            margin-bottom: 10px;
+            color: #374151;
+        }
+
+        .code-example {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 10px;
+            border-left: 4px solid #2563eb;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: #6b7280;
+            transition: color 0.3s, border-color 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                margin: 10px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 JWT Token Generator</h1>
+            <p>Generate authentication tokens for QR SaaS Platform development</p>
+        </div>
+        
+        <div class="content">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('generate')">Generate Token</button>
+                <button class="tab" onclick="switchTab('decode')">Decode Token</button>
+                <button class="tab" onclick="switchTab('verify')">Verify Token</button>
+            </div>
+
+            <!-- Generate Tab -->
+            <div id="generate-tab" class="tab-content active">
+                <form id="generate-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="userId">User ID</label>
+                            <input type="text" id="userId" value="550e8400-e29b-41d4-a716-446655440000" placeholder="Enter user ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" value="demo@qr-saas.com" placeholder="Enter email">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Full Name</label>
+                            <input type="text" id="name" value="Demo User" placeholder="Enter full name">
+                        </div>
+                        <div class="form-group">
+                            <label for="subscription">Subscription Tier</label>
+                            <select id="subscription">
+                                <option value="free">Free</option>
+                                <option value="pro" selected>Pro</option>
+                                <option value="business">Business</option>
+                                <option value="enterprise">Enterprise</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expiresIn">Expires In (hours)</label>
+                            <input type="number" id="expiresIn" value="24" min="1" max="8760">
+                        </div>
+                        <div class="form-group">
+                            <label for="jwtSecret">JWT Secret</label>
+                            <input type="text" id="jwtSecret" value="your-super-secret-jwt-key-change-in-production" placeholder="JWT signing secret">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn">🎫 Generate Token</button>
+                    <button type="button" class="btn btn-secondary" onclick="generatePresets()">👥 Generate Presets</button>
+                    <button type="button" class="btn btn-secondary" onclick="clearForm()">🗑️ Clear Form</button>
+                </form>
+            </div>
+
+            <!-- Decode Tab -->
+            <div id="decode-tab" class="tab-content">
+                <div class="form-group">
+                    <label for="decodeToken">JWT Token to Decode</label>
+                    <textarea id="decodeToken" rows="4" placeholder="Paste your JWT token here..."></textarea>
+                </div>
+                <button type="button" class="btn" onclick="decodeToken()">🔍 Decode Token</button>
+            </div>
+
+            <!-- Verify Tab -->
+            <div id="verify-tab" class="tab-content">
+                <div class="form-group">
+                    <label for="verifyToken">JWT Token to Verify</label>
+                    <textarea id="verifyToken" rows="4" placeholder="Paste your JWT token here..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="verifySecret">JWT Secret</label>
+                    <input type="text" id="verifySecret" value="your-super-secret-jwt-key-change-in-production" placeholder="JWT signing secret">
+                </div>
+                <button type="button" class="btn" onclick="verifyToken()">🔐 Verify Token</button>
+            </div>
+
+            <div id="result" class="result-section" style="display: none;">
+                <!-- Results will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JWT utility functions
+        function base64urlEncode(str) {
+            return btoa(str)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=/g, '');
+        }
+
+        function base64urlDecode(str) {
+            // Add padding
+            while (str.length % 4) {
+                str += '=';
+            }
+            return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+        }
+
+        async function generateJWT(payload, secret) {
+            const header = {
+                alg: 'HS256',
+                typ: 'JWT'
+            };
+
+            const encodedHeader = base64urlEncode(JSON.stringify(header));
+            const encodedPayload = base64urlEncode(JSON.stringify(payload));
+            
+            // Create signature using Web Crypto API
+            const encoder = new TextEncoder();
+            const data = encoder.encode(`${encodedHeader}.${encodedPayload}`);
+            const key = await crypto.subtle.importKey(
+                'raw',
+                encoder.encode(secret),
+                { name: 'HMAC', hash: 'SHA-256' },
+                false,
+                ['sign']
+            );
+            
+            const signature = await crypto.subtle.sign('HMAC', key, data);
+            const encodedSignature = base64urlEncode(String.fromCharCode(...new Uint8Array(signature)));
+            
+            return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Hide result section when switching tabs
+            document.getElementById('result').style.display = 'none';
+        }
+
+        async function generateToken() {
+            const userId = document.getElementById('userId').value;
+            const email = document.getElementById('email').value;
+            const name = document.getElementById('name').value;
+            const subscription = document.getElementById('subscription').value;
+            const expiresIn = parseInt(document.getElementById('expiresIn').value) * 3600; // Convert to seconds
+            const secret = document.getElementById('jwtSecret').value;
+
+            const now = Math.floor(Date.now() / 1000);
+            const payload = {
+                sub: userId,
+                userId: userId,
+                email: email,
+                name: name,
+                subscriptionTier: subscription,
+                isEmailVerified: true,
+                iat: now,
+                exp: now + expiresIn,
+                iss: 'qr-saas-platform',
+                aud: 'qr-saas-frontend'
+            };
+
+            try {
+                const token = await generateJWT(payload, secret);
+                displayResult('success', 'Token Generated Successfully!', {
+                    token: token,
+                    payload: payload,
+                    expiresAt: new Date(payload.exp * 1000).toISOString()
+                });
+            } catch (error) {
+                displayResult('error', 'Failed to generate token: ' + error.message);
+            }
+        }
+
+        function decodeToken() {
+            const token = document.getElementById('decodeToken').value.trim();
+            
+            if (!token) {
+                displayResult('error', 'Please enter a JWT token to decode.');
+                return;
+            }
+
+            try {
+                const parts = token.split('.');
+                if (parts.length !== 3) {
+                    throw new Error('Invalid token format');
+                }
+
+                const header = JSON.parse(base64urlDecode(parts[0]));
+                const payload = JSON.parse(base64urlDecode(parts[1]));
+
+                displayResult('success', 'Token Decoded Successfully!', {
+                    decoded: true,
+                    header: header,
+                    payload: payload,
+                    signature: parts[2]
+                });
+            } catch (error) {
+                displayResult('error', 'Failed to decode token: ' + error.message);
+            }
+        }
+
+        async function verifyToken() {
+            const token = document.getElementById('verifyToken').value.trim();
+            const secret = document.getElementById('verifySecret').value;
+            
+            if (!token) {
+                displayResult('error', 'Please enter a JWT token to verify.');
+                return;
+            }
+
+            try {
+                const parts = token.split('.');
+                if (parts.length !== 3) {
+                    throw new Error('Invalid token format');
+                }
+
+                const [encodedHeader, encodedPayload, signature] = parts;
+                
+                // Verify signature
+                const encoder = new TextEncoder();
+                const data = encoder.encode(`${encodedHeader}.${encodedPayload}`);
+                const key = await crypto.subtle.importKey(
+                    'raw',
+                    encoder.encode(secret),
+                    { name: 'HMAC', hash: 'SHA-256' },
+                    false,
+                    ['sign']
+                );
+                
+                const expectedSignature = await crypto.subtle.sign('HMAC', key, data);
+                const encodedExpectedSignature = base64urlEncode(String.fromCharCode(...new Uint8Array(expectedSignature)));
+
+                if (signature !== encodedExpectedSignature) {
+                    displayResult('error', 'Token verification failed: Invalid signature');
+                    return;
+                }
+
+                const payload = JSON.parse(base64urlDecode(encodedPayload));
+                const now = Math.floor(Date.now() / 1000);
+
+                // Check expiration
+                if (payload.exp && payload.exp < now) {
+                    displayResult('error', `Token verification failed: Token expired at ${new Date(payload.exp * 1000).toISOString()}`);
+                    return;
+                }
+
+                displayResult('success', 'Token Verified Successfully!', {
+                    verified: true,
+                    payload: payload,
+                    expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
+                    issuedAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : null
+                });
+
+            } catch (error) {
+                displayResult('error', 'Token verification failed: ' + error.message);
+            }
+        }
+
+        function displayResult(type, message, data = null) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            
+            let html = `<div class="status ${type}">${message}</div>`;
+            
+            if (data && data.token) {
+                html += `
+                    <h3>🎫 Generated Token</h3>
+                    <div class="token-display">
+                        ${data.token}
+                        <button class="copy-btn" onclick="copyToClipboard('${data.token}')">📋 Copy</button>
+                    </div>
+                    
+                    <h3>📋 Token Payload</h3>
+                    <div class="payload-display">${JSON.stringify(data.payload, null, 2)}</div>
+                    
+                    <p><strong>Expires:</strong> ${data.expiresAt}</p>
+                    
+                    <div class="usage-examples">
+                        <h4>🔧 Frontend Usage Examples:</h4>
+                        <div class="code-example">localStorage.setItem('authToken', '${data.token}');</div>
+                        <div class="code-example">axios.defaults.headers.common['Authorization'] = 'Bearer ${data.token}';</div>
+                        <div class="code-example">fetch('/api/users', { headers: { 'Authorization': 'Bearer ${data.token}' } })</div>
+                    </div>
+                `;
+            } else if (data && data.decoded) {
+                html += `
+                    <h3>🔍 Decoded Token</h3>
+                    <h4>Header:</h4>
+                    <div class="payload-display">${JSON.stringify(data.header, null, 2)}</div>
+                    <h4>Payload:</h4>
+                    <div class="payload-display">${JSON.stringify(data.payload, null, 2)}</div>
+                    <h4>Signature:</h4>
+                    <div class="token-display">${data.signature}</div>
+                `;
+            } else if (data && data.verified) {
+                html += `
+                    <h3>✅ Verified Token</h3>
+                    <div class="payload-display">${JSON.stringify(data.payload, null, 2)}</div>
+                    ${data.expiresAt ? `<p><strong>Expires:</strong> ${data.expiresAt}</p>` : ''}
+                    ${data.issuedAt ? `<p><strong>Issued:</strong> ${data.issuedAt}</p>` : ''}
+                `;
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Token copied to clipboard!');
+            });
+        }
+
+        function generatePresets() {
+            const presets = [
+                { userId: '550e8400-e29b-41d4-a716-446655440000', email: 'admin@qr-saas.com', name: 'Admin User', subscription: 'enterprise' },
+                { userId: '550e8400-e29b-41d4-a716-446655440001', email: 'pro@qr-saas.com', name: 'Pro User', subscription: 'pro' },
+                { userId: '550e8400-e29b-41d4-a716-446655440002', email: 'free@qr-saas.com', name: 'Free User', subscription: 'free' }
+            ];
+
+            const preset = presets[Math.floor(Math.random() * presets.length)];
+            document.getElementById('userId').value = preset.userId;
+            document.getElementById('email').value = preset.email;
+            document.getElementById('name').value = preset.name;
+            document.getElementById('subscription').value = preset.subscription;
+        }
+
+        function clearForm() {
+            document.getElementById('generate-form').reset();
+            document.getElementById('result').style.display = 'none';
+        }
+
+        // Form submit handler
+        document.getElementById('generate-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            generateToken();
+        });
+
+        // Auto-generate token on page load
+        window.addEventListener('load', () => {
+            generateToken();
+        });
+    </script>
+</body>
+</html>

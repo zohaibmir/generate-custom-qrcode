@@ -17,6 +17,13 @@ export interface ServiceResponse<T = any> extends SharedServiceResponse<T> {
 }
 export { ServiceError, AppError, ValidationError, NotFoundError, ConflictError };
 
+// Database error class
+export class DatabaseError extends AppError {
+  constructor(message: string = 'Database operation failed') {
+    super(message, 500, 'DATABASE_ERROR');
+  }
+}
+
 // Basic interfaces
 export interface PaginationOptions {
   page: number;
@@ -70,6 +77,82 @@ export interface OrganizationInvitation {
   createdAt: Date;
 }
 
+// QR Library domain models
+export interface QRLibrary {
+  id: string;
+  organizationId: string;
+  name: string;
+  description?: string;
+  colorHex: string;
+  icon: string;
+  isPublic: boolean;
+  isDefault: boolean;
+  createdBy: string;
+  settings: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface QRLibraryItem {
+  id: string;
+  libraryId: string;
+  qrCodeId: string;
+  addedBy: string;
+  position: number;
+  notes?: string;
+  tags: string[];
+  isFeatured: boolean;
+  createdAt: Date;
+}
+
+export interface QRLibraryPermission {
+  id: string;
+  libraryId: string;
+  userId?: string;
+  role?: TeamRole;
+  permissions: Record<string, any>;
+  grantedBy: string;
+  expiresAt?: Date;
+  createdAt: Date;
+}
+
+export interface QRAccessControl {
+  id: string;
+  qrCodeId: string;
+  userId?: string;
+  role?: TeamRole;
+  permissions: Record<string, any>;
+  grantedBy: string;
+  expiresAt?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TeamDashboardMetric {
+  id: string;
+  organizationId: string;
+  metricType: string;
+  metricName: string;
+  metricValue: number;
+  metricData: Record<string, any>;
+  periodStart: Date;
+  periodEnd: Date;
+  calculatedAt: Date;
+}
+
+export interface TeamActivity {
+  id: string;
+  organizationId: string;
+  userId: string;
+  activityType: string;
+  resourceType?: string;
+  resourceId?: string;
+  description: string;
+  metadata: Record<string, any>;
+  createdAt: Date;
+}
+
 // Request DTOs
 export interface CreateOrganizationRequest {
   name: string;
@@ -100,6 +183,52 @@ export interface AcceptInvitationRequest {
   token: string;
 }
 
+// QR Library Request DTOs
+export interface CreateLibraryRequest {
+  name: string;
+  description?: string;
+  colorHex?: string;
+  icon?: string;
+  isPublic?: boolean;
+  settings?: Record<string, any>;
+}
+
+export interface UpdateLibraryRequest {
+  name?: string;
+  description?: string;
+  colorHex?: string;
+  icon?: string;
+  isPublic?: boolean;
+  settings?: Record<string, any>;
+}
+
+export interface AddToLibraryRequest {
+  qrCodeIds: string[];
+  notes?: string;
+  tags?: string[];
+  isFeatured?: boolean;
+}
+
+export interface UpdateLibraryItemRequest {
+  position?: number;
+  notes?: string;
+  tags?: string[];
+  isFeatured?: boolean;
+}
+
+export interface GrantQRAccessRequest {
+  userId?: string;
+  role?: TeamRole;
+  permissions: Record<string, any>;
+  expiresAt?: Date;
+}
+
+export interface TeamDashboardRequest {
+  periodDays?: number;
+  metricTypes?: string[];
+  includeActivity?: boolean;
+}
+
 // Response DTOs
 export interface OrganizationWithStats extends Organization {
   memberCount: number;
@@ -114,6 +243,61 @@ export interface MemberWithUserInfo extends OrganizationMember {
     fullName?: string;
     avatar?: string;
   };
+}
+
+export interface QRLibraryWithItems extends QRLibrary {
+  items: QRLibraryItemWithQR[];
+  itemCount: number;
+  permissions: QRLibraryPermission[];
+}
+
+export interface QRLibraryItemWithQR extends QRLibraryItem {
+  qrCode: {
+    id: string;
+    name: string;
+    type: string;
+    shortId: string;
+    isActive: boolean;
+    currentScans: number;
+    createdAt: Date;
+  };
+}
+
+export interface QRAccessLog {
+  id: string;
+  qrCodeId: string;
+  userId: string;
+  action: string;
+  permissionUsed?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata: Record<string, any>;
+  createdAt: Date;
+}
+
+export interface TeamDashboardData {
+  organizationStats: {
+    totalQrCodes: number;
+    totalLibraries: number;
+    totalScans: number;
+    scansThisPeriod: number;
+    activeMembers: number;
+    sharedQrCodes: number;
+  };
+  metrics: TeamDashboardMetric[];
+  recentActivity: TeamActivity[];
+  topPerformingQRs: Array<{
+    id: string;
+    name: string;
+    scans: number;
+    library?: string;
+  }>;
+  memberActivity: Array<{
+    userId: string;
+    userName: string;
+    actionCount: number;
+    lastActivity: Date;
+  }>;
 }
 
 // Permission definitions
@@ -165,6 +349,37 @@ export interface ITeamService {
   // Permission checking
   checkPermission(userId: string, organizationId: string, permission: string): Promise<ServiceResponse<boolean>>;
   getUserRole(userId: string, organizationId: string): Promise<ServiceResponse<TeamRole | null>>;
+  
+  // QR Library management
+  createLibrary(organizationId: string, userId: string, data: CreateLibraryRequest): Promise<ServiceResponse<QRLibrary>>;
+  getLibraries(organizationId: string, userId: string, pagination: PaginationOptions): Promise<ServiceResponse<QRLibrary[]>>;
+  getLibrary(libraryId: string, userId: string): Promise<ServiceResponse<QRLibraryWithItems>>;
+  updateLibrary(libraryId: string, userId: string, updates: UpdateLibraryRequest): Promise<ServiceResponse<QRLibrary>>;
+  deleteLibrary(libraryId: string, userId: string): Promise<ServiceResponse<void>>;
+  
+  // Library item management
+  addToLibrary(libraryId: string, userId: string, data: AddToLibraryRequest): Promise<ServiceResponse<QRLibraryItem[]>>;
+  removeFromLibrary(libraryId: string, userId: string, qrCodeId: string): Promise<ServiceResponse<void>>;
+  updateLibraryItem(itemId: string, userId: string, updates: UpdateLibraryItemRequest): Promise<ServiceResponse<QRLibraryItem>>;
+  getLibraryItems(libraryId: string, userId: string, pagination: PaginationOptions): Promise<ServiceResponse<QRLibraryItemWithQR[]>>;
+  
+  // Team dashboard
+  getTeamDashboard(organizationId: string, userId: string, request: TeamDashboardRequest): Promise<ServiceResponse<TeamDashboardData>>;
+  getTeamActivity(organizationId: string, userId: string, pagination: PaginationOptions): Promise<ServiceResponse<TeamActivity[]>>;
+}
+
+// Enhanced QR Service interface for fine-grained permissions
+export interface IQRPermissionService {
+  // QR Access Control
+  grantQRAccess(qrCodeId: string, userId: string, data: GrantQRAccessRequest): Promise<ServiceResponse<QRAccessControl>>;
+  revokeQRAccess(qrCodeId: string, userId: string, accessId: string): Promise<ServiceResponse<void>>;
+  checkQRAccess(qrCodeId: string, userId: string, permission: string): Promise<ServiceResponse<boolean>>;
+  getQRPermissions(qrCodeId: string, userId: string): Promise<ServiceResponse<QRAccessControl[]>>;
+  updateQRPermissions(qrCodeId: string, userId: string, permissions: Record<string, any>): Promise<ServiceResponse<void>>;
+  
+  // Access logging
+  logQRAccess(qrCodeId: string, userId: string, action: string, metadata?: Record<string, any>): Promise<void>;
+  getQRAccessLog(qrCodeId: string, userId: string, pagination: PaginationOptions): Promise<ServiceResponse<QRAccessLog[]>>;
 }
 
 // Repository interfaces (Data access layer)
@@ -213,6 +428,122 @@ export interface IInvitationRepository {
   accept(id: string, userId: string): Promise<OrganizationInvitation>;
   delete(id: string): Promise<void>;
   cleanupExpired(): Promise<number>;
+}
+
+// QR Library Repository interfaces
+export interface IQRLibraryRepository {
+  create(data: CreateLibraryRequest & { organizationId: string; createdBy: string }): Promise<QRLibrary>;
+  findById(id: string): Promise<QRLibrary | null>;
+  findByOrganization(organizationId: string, pagination: PaginationOptions): Promise<{ libraries: QRLibrary[]; total: number }>;
+  findUserAccessibleLibraries(organizationId: string, userId: string, pagination: PaginationOptions): Promise<{ libraries: QRLibrary[]; total: number }>;
+  update(id: string, updates: UpdateLibraryRequest): Promise<QRLibrary>;
+  delete(id: string): Promise<void>;
+  getStats(libraryId: string): Promise<{ itemCount: number; scanCount: number; memberCount: number }>;
+}
+
+export interface IQRLibraryItemRepository {
+  create(data: {
+    libraryId: string;
+    qrCodeId: string;
+    addedBy: string;
+    position?: number;
+    notes?: string;
+    tags?: string[];
+    isFeatured?: boolean;
+  }): Promise<QRLibraryItem>;
+  findById(id: string): Promise<QRLibraryItem | null>;
+  findByLibrary(libraryId: string, pagination: PaginationOptions): Promise<{ items: QRLibraryItemWithQR[]; total: number }>;
+  findByQRCode(qrCodeId: string): Promise<QRLibraryItem[]>;
+  update(id: string, updates: UpdateLibraryItemRequest): Promise<QRLibraryItem>;
+  delete(id: string): Promise<void>;
+  bulkCreate(items: Array<{ libraryId: string; qrCodeId: string; addedBy: string; notes?: string; tags?: string[] }>): Promise<QRLibraryItem[]>;
+  bulkDelete(libraryId: string, qrCodeIds: string[]): Promise<void>;
+  reorderItems(libraryId: string, itemOrders: Array<{ id: string; position: number }>): Promise<void>;
+}
+
+export interface IQRLibraryPermissionRepository {
+  create(data: {
+    libraryId: string;
+    userId?: string;
+    role?: TeamRole;
+    permissions: Record<string, any>;
+    grantedBy: string;
+    expiresAt?: Date;
+  }): Promise<QRLibraryPermission>;
+  findById(id: string): Promise<QRLibraryPermission | null>;
+  findByLibrary(libraryId: string): Promise<QRLibraryPermission[]>;
+  findByUser(userId: string): Promise<QRLibraryPermission[]>;
+  checkUserAccess(libraryId: string, userId: string): Promise<QRLibraryPermission | null>;
+  update(id: string, permissions: Record<string, any>): Promise<QRLibraryPermission>;
+  delete(id: string): Promise<void>;
+  cleanupExpired(): Promise<number>;
+}
+
+// QR Access Control Repository interfaces
+export interface IQRAccessControlRepository {
+  create(data: {
+    qrCodeId: string;
+    userId?: string;
+    role?: TeamRole;
+    permissions: Record<string, any>;
+    grantedBy: string;
+    expiresAt?: Date;
+  }): Promise<QRAccessControl>;
+  findById(id: string): Promise<QRAccessControl | null>;
+  findByQRCode(qrCodeId: string, pagination: PaginationOptions): Promise<{ accessControls: QRAccessControl[]; total: number }>;
+  findByUser(userId: string, pagination: PaginationOptions): Promise<{ accessControls: QRAccessControl[]; total: number }>;
+  checkAccess(qrCodeId: string, userId?: string, role?: string): Promise<QRAccessControl | null>;
+  update(id: string, updates: Partial<GrantQRAccessRequest>): Promise<QRAccessControl>;
+  revoke(id: string): Promise<void>;
+  bulkRevoke(qrCodeId: string, userIds?: string[], roles?: string[]): Promise<number>;
+  cleanupExpired(): Promise<number>;
+}
+
+export interface IQRAccessLogRepository {
+  create(data: {
+    qrCodeId: string;
+    userId: string;
+    action: string;
+    permissionUsed?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    metadata?: Record<string, any>;
+  }): Promise<QRAccessLog>;
+  findByQRCode(qrCodeId: string, pagination: PaginationOptions): Promise<{ logs: QRAccessLog[]; total: number }>;
+  findByUser(userId: string, pagination: PaginationOptions): Promise<{ logs: QRAccessLog[]; total: number }>;
+  findByOrganization(organizationId: string, pagination: PaginationOptions): Promise<{ logs: QRAccessLog[]; total: number }>;
+  getAccessStats(qrCodeId: string, periodDays: number): Promise<Record<string, any>>;
+  cleanup(retentionDays: number): Promise<number>;
+}
+
+// Team Dashboard Repository interfaces
+export interface ITeamDashboardRepository {
+  getOrganizationStats(organizationId: string, periodDays: number): Promise<TeamDashboardData['organizationStats']>;
+  getTeamMetrics(organizationId: string, metricTypes: string[], periodDays: number): Promise<TeamDashboardMetric[]>;
+  getRecentActivity(organizationId: string, pagination: PaginationOptions): Promise<{ activities: TeamActivity[]; total: number }>;
+  getTopPerformingQRs(organizationId: string, limit: number, periodDays: number): Promise<TeamDashboardData['topPerformingQRs']>;
+  getMemberActivity(organizationId: string, periodDays: number): Promise<TeamDashboardData['memberActivity']>;
+  createMetric(data: {
+    organizationId: string;
+    metricType: string;
+    metricName: string;
+    metricValue: number;
+    metricData?: Record<string, any>;
+    periodStart: Date;
+    periodEnd: Date;
+  }): Promise<TeamDashboardMetric>;
+  logActivity(data: {
+    organizationId: string;
+    userId: string;
+    activityType: string;
+    resourceType?: string;
+    resourceId?: string;
+    description: string;
+    metadata?: Record<string, any>;
+  }): Promise<TeamActivity>;
+  getMetricHistory(organizationId: string, metricType: string, periodDays: number): Promise<TeamDashboardMetric[]>;
+  cleanupOldMetrics(retentionDays: number): Promise<number>;
+  cleanupOldActivity(retentionDays: number): Promise<number>;
 }
 
 // Utility interfaces

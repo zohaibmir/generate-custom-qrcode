@@ -26,8 +26,20 @@ import {
   ILogger,
   ISlugGenerator,
   IInvitationService,
-  IPermissionChecker
+  IPermissionChecker,
+  QRLibrary,
+  QRLibraryWithItems,
+  QRLibraryItem,
+  QRLibraryItemWithQR,
+  CreateLibraryRequest,
+  UpdateLibraryRequest,
+  AddToLibraryRequest,
+  UpdateLibraryItemRequest,
+  TeamDashboardRequest,
+  TeamDashboardData,
+  TeamActivity
 } from '../interfaces';
+import { QRLibraryService } from './qr-library.service';
 import { businessConfig } from '../config';
 
 export class TeamService implements ITeamService {
@@ -38,6 +50,7 @@ export class TeamService implements ITeamService {
   private slugGenerator: ISlugGenerator;
   private invitationService: IInvitationService;
   private permissionChecker: IPermissionChecker;
+  private qrLibraryService: QRLibraryService;
 
   constructor(
     organizationRepo: IOrganizationRepository,
@@ -46,7 +59,8 @@ export class TeamService implements ITeamService {
     logger: ILogger,
     slugGenerator: ISlugGenerator,
     invitationService: IInvitationService,
-    permissionChecker: IPermissionChecker
+    permissionChecker: IPermissionChecker,
+    qrLibraryService: QRLibraryService
   ) {
     this.organizationRepo = organizationRepo;
     this.memberRepo = memberRepo;
@@ -55,6 +69,7 @@ export class TeamService implements ITeamService {
     this.slugGenerator = slugGenerator;
     this.invitationService = invitationService;
     this.permissionChecker = permissionChecker;
+    this.qrLibraryService = qrLibraryService;
   }
 
   // Organization Management
@@ -555,6 +570,95 @@ export class TeamService implements ITeamService {
 
     if (!data.role || !['admin', 'editor', 'viewer'].includes(data.role)) {
       throw new ValidationError('Invalid role specified');
+    }
+  }
+
+  // QR Library Management - Delegation to QRLibraryService
+  async createLibrary(organizationId: string, userId: string, data: CreateLibraryRequest): Promise<ServiceResponse<QRLibrary>> {
+    return this.qrLibraryService.createLibrary(organizationId, userId, data);
+  }
+
+  async getLibraries(organizationId: string, userId: string, pagination: PaginationOptions): Promise<ServiceResponse<QRLibrary[]>> {
+    return this.qrLibraryService.getLibraries(organizationId, userId, pagination);
+  }
+
+  async getLibrary(libraryId: string, userId: string): Promise<ServiceResponse<QRLibraryWithItems>> {
+    return this.qrLibraryService.getLibrary(libraryId, userId);
+  }
+
+  async updateLibrary(libraryId: string, userId: string, updates: UpdateLibraryRequest): Promise<ServiceResponse<QRLibrary>> {
+    return this.qrLibraryService.updateLibrary(libraryId, userId, updates);
+  }
+
+  async deleteLibrary(libraryId: string, userId: string): Promise<ServiceResponse<void>> {
+    return this.qrLibraryService.deleteLibrary(libraryId, userId);
+  }
+
+  async addToLibrary(libraryId: string, userId: string, data: AddToLibraryRequest): Promise<ServiceResponse<QRLibraryItem[]>> {
+    return this.qrLibraryService.addToLibrary(libraryId, userId, data);
+  }
+
+  async removeFromLibrary(libraryId: string, userId: string, qrCodeId: string): Promise<ServiceResponse<void>> {
+    return this.qrLibraryService.removeFromLibrary(libraryId, userId, qrCodeId);
+  }
+
+  async updateLibraryItem(itemId: string, userId: string, updates: UpdateLibraryItemRequest): Promise<ServiceResponse<QRLibraryItem>> {
+    return this.qrLibraryService.updateLibraryItem(itemId, userId, updates);
+  }
+
+  async getLibraryItems(libraryId: string, userId: string, pagination: PaginationOptions): Promise<ServiceResponse<QRLibraryItemWithQR[]>> {
+    return this.qrLibraryService.getLibraryItems(libraryId, userId, pagination);
+  }
+
+  // Team Dashboard Management - TODO: Implement TeamDashboardService
+  async getTeamDashboard(organizationId: string, userId: string, request: TeamDashboardRequest): Promise<ServiceResponse<TeamDashboardData>> {
+    try {
+      // Check if user is a member
+      const member = await this.memberRepo.findByUserAndOrganization(userId, organizationId);
+      if (!member || member.status !== 'active') {
+        return { success: false, error: new UnauthorizedError('Access denied to this organization') };
+      }
+
+      // TODO: Implement proper dashboard data aggregation
+      // For now, return placeholder data
+      const dashboardData: TeamDashboardData = {
+        organizationStats: {
+          totalQrCodes: 0,
+          totalLibraries: 0,
+          totalScans: 0,
+          scansThisPeriod: 0,
+          activeMembers: 0,
+          sharedQrCodes: 0
+        },
+        metrics: [],
+        recentActivity: [],
+        topPerformingQRs: [],
+        memberActivity: []
+      };
+
+      return { success: true, data: dashboardData };
+    } catch (error: any) {
+      this.logger.error('Failed to get team dashboard', { organizationId, userId, error });
+      return { success: false, error: new AppError('Failed to retrieve team dashboard', 500, 'INTERNAL_ERROR') };
+    }
+  }
+
+  async getTeamActivity(organizationId: string, userId: string, pagination: PaginationOptions): Promise<ServiceResponse<TeamActivity[]>> {
+    try {
+      // Check if user is a member
+      const member = await this.memberRepo.findByUserAndOrganization(userId, organizationId);
+      if (!member || member.status !== 'active') {
+        return { success: false, error: new UnauthorizedError('Access denied to this organization') };
+      }
+
+      // TODO: Implement activity repository and return actual activity
+      // For now, return empty array
+      const activities: TeamActivity[] = [];
+
+      return { success: true, data: activities, meta: { total: 0 } };
+    } catch (error: any) {
+      this.logger.error('Failed to get team activity', { organizationId, userId, error });
+      return { success: false, error: new AppError('Failed to retrieve team activity', 500, 'INTERNAL_ERROR') };
     }
   }
 }

@@ -22,20 +22,10 @@ else
     echo "🔗 Connecting to PostgreSQL at $DB_HOST:$DB_PORT"
 fi
 
-# Apply core schema
-echo "📋 Applying core database schema..."
-$PSQL_CMD < database/init.sql
-echo "✅ Core schema applied successfully"
-
-# Apply landing pages schema
-echo "🎯 Applying landing pages schema..."
-$PSQL_CMD < database/landing-pages-schema.sql
-echo "✅ Landing pages schema applied successfully"
-
-# Apply advanced analytics schema
-echo "📊 Applying advanced analytics schema..."
-$PSQL_CMD < database/advanced-analytics-schema.sql
-echo "✅ Advanced analytics schema applied successfully"
+# Apply complete schema (now consolidated in init.sql)
+echo "📋 Applying complete database schema..."
+$PSQL_CMD < init.sql
+echo "✅ Complete database schema applied successfully"
 
 # Verify deployment
 echo "🔍 Verifying deployment..."
@@ -45,8 +35,11 @@ VIEW_COUNT=$($PSQL_CMD -t -c "SELECT COUNT(*) FROM information_schema.views WHER
 echo "📈 Deployment Summary:"
 echo "   - Tables created: $TABLE_COUNT"
 echo "   - Materialized views created: $VIEW_COUNT"
-echo "   - Core features: QR codes, users, categories, basic analytics"
-echo "   - Landing pages: Templates, A/B testing, forms, page analytics"
-echo "   - Advanced analytics: Conversion tracking, heatmaps, real-time metrics"
+echo "   - Core QR SaaS Platform ✅"
+echo "   - Team Management & Organizations ✅"
+echo "   - Team Collaboration Features ✅"
+echo "   - Landing Pages System ✅"
+echo "   - Advanced Analytics ✅"
+echo "   - Payment Processing ✅"
 
-echo "🎉 Database deployment completed successfully!"
+echo "🎉 Complete database deployment finished successfully!"

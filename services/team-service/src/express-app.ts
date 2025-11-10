@@ -7,7 +7,8 @@ import {
   createOrganizationRoutes, 
   createMemberRoutes, 
   createInvitationRoutes, 
-  createHealthRoutes 
+  createHealthRoutes,
+  createTeamCollaborationRoutes
 } from './routes';
 
 export class ExpressApp {
@@ -63,12 +64,16 @@ export class ExpressApp {
     const memberController = this.container.getMemberController();
     const invitationController = this.container.getInvitationController();
     const healthController = this.container.getHealthController();
+    const teamCollaborationController = this.container.getTeamCollaborationController();
 
     // Mount routes
     this.app.use('/health', createHealthRoutes(healthController));
     this.app.use('/api/v1/organizations', createOrganizationRoutes(organizationController));
     this.app.use('/api/v1/members', createMemberRoutes(memberController));
     this.app.use('/api/v1/invitations', createInvitationRoutes(invitationController));
+    
+    // Team collaboration routes (QR Libraries, Permissions, Dashboard)
+    this.app.use('/api/v1', createTeamCollaborationRoutes(teamCollaborationController));
 
     // Root route
     this.app.get('/', (req: Request, res: Response) => {

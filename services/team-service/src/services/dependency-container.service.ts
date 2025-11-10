@@ -71,6 +71,10 @@ export class DependencyContainer implements IDependencyContainer {
   getHealthController(): any {
     return this.resolve(TOKENS.HEALTH_CONTROLLER);
   }
+
+  getTeamCollaborationController(): any {
+    return this.resolve(TOKENS.TEAM_COLLABORATION_CONTROLLER);
+  }
 }
 
 // Dependency injection tokens
@@ -79,9 +83,17 @@ export const TOKENS = {
   ORGANIZATION_REPOSITORY: 'OrganizationRepository',
   MEMBER_REPOSITORY: 'MemberRepository',
   INVITATION_REPOSITORY: 'InvitationRepository',
+  QR_LIBRARY_REPOSITORY: 'QRLibraryRepository',
+  QR_LIBRARY_ITEM_REPOSITORY: 'QRLibraryItemRepository',
+  QR_LIBRARY_PERMISSION_REPOSITORY: 'QRLibraryPermissionRepository',
+  QR_ACCESS_CONTROL_REPOSITORY: 'QRAccessControlRepository',
+  TEAM_DASHBOARD_REPOSITORY: 'TeamDashboardRepository',
   
   // Services
   TEAM_SERVICE: 'TeamService',
+  QR_LIBRARY_SERVICE: 'QRLibraryService',
+  QR_PERMISSION_SERVICE: 'QRPermissionService',
+  TEAM_DASHBOARD_SERVICE: 'TeamDashboardService',
   SLUG_GENERATOR: 'SlugGenerator',
   INVITATION_SERVICE: 'InvitationService',
   PERMISSION_CHECKER: 'PermissionChecker',
@@ -91,6 +103,7 @@ export const TOKENS = {
   MEMBER_CONTROLLER: 'MemberController',
   INVITATION_CONTROLLER: 'InvitationController',
   HEALTH_CONTROLLER: 'HealthController',
+  TEAM_COLLABORATION_CONTROLLER: 'TeamCollaborationController',
   
   // Infrastructure
   DATABASE_CONNECTION: 'DatabaseConnection',
