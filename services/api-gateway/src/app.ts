@@ -133,6 +133,7 @@ class ApiGatewayApplication {
           'analytics-service': 'Scan tracking and analytics',
           'file-service': 'File upload and storage',
           'notification-service': 'Email/SMS with database persistence',
+          'api-service': 'API keys, webhooks, SDK generation, and third-party integrations',
           'team-service': 'Team and organization management with member invitations',
           'landing-page-service': 'Landing page builder with A/B testing and forms',
           'payment-processing': 'Multi-provider payments: Swish (Swedish), Stripe, Klarna, PayPal'
@@ -290,6 +291,51 @@ class ApiGatewayApplication {
     
     this.app.all('/api/payments/*', async (req, res) => {
       await this.proxyRequest(req, res, 'user-service', '/api/payments', '/api/v1/payments');
+    });
+
+    // API Service routes - handle API keys, webhooks, SDK generation, and third-party integrations
+    this.app.all('/api/integrations', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/integrations', '/api/v1');
+    });
+    
+    this.app.all('/api/integrations/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/integrations', '/api/v1');
+    });
+
+    // API Keys routes - specific route for better organization
+    this.app.all('/api/keys', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/keys', '/api/v1/keys');
+    });
+    
+    this.app.all('/api/keys/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/keys', '/api/v1/keys');
+    });
+
+    // Webhooks routes - specific route for better organization  
+    this.app.all('/api/webhooks', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/webhooks', '/api/v1/webhooks');
+    });
+    
+    this.app.all('/api/webhooks/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/webhooks', '/api/v1/webhooks');
+    });
+
+    // SDK Generation routes - specific route for SDK operations
+    this.app.all('/api/sdks', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/sdks', '/api/v1/sdks');
+    });
+    
+    this.app.all('/api/sdks/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/sdks', '/api/v1/sdks');
+    });
+
+    // Public API routes - for API key based access
+    this.app.all('/api/public', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/public', '/api/v1/public');
+    });
+    
+    this.app.all('/api/public/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/public', '/api/v1/public');
     });
 
     // Public landing page access (special route)
