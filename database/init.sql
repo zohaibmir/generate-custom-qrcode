@@ -2661,6 +2661,326 @@ COMMENT ON COLUMN sdk_generation_jobs.file_path IS 'Path to the generated SDK ZI
 COMMENT ON COLUMN sdk_generation_jobs.expires_at IS 'When the SDK download link expires (typically 24 hours)';
 
 -- ===============================================
+-- E-COMMERCE QR SERVICE TABLES
+-- ===============================================
+
+-- Inventory Integrations Table
+CREATE TABLE IF NOT EXISTS inventory_integrations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL, -- 'shopify', 'woocommerce', 'magento', 'bigcommerce', 'custom', 'manual'
+    platform VARCHAR(50) NOT NULL, -- Same as type for compatibility
+    platform_version VARCHAR(20),
+    credentials TEXT NOT NULL, -- Encrypted JSON with API keys/tokens
+    
+    -- Legacy API Configuration (kept for compatibility)
+    api_endpoint VARCHAR(500),
+    api_key VARCHAR(255),
+    api_secret VARCHAR(255),
+    
+    -- Shopify specific (legacy)
+    shopify_store_name VARCHAR(255),
+    shopify_access_token VARCHAR(255),
+    
+    -- WooCommerce specific (legacy) 
+    woo_commerce_url VARCHAR(500),
+    woo_commerce_consumer_key VARCHAR(255),
+    woo_commerce_consumer_secret VARCHAR(255),
+    
+    -- Manual inventory products (JSON array)
+    products JSONB,
+    
+    -- Sync settings (JSON object)
+    sync_settings JSONB,
+    
+    -- Configuration
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for inventory_integrations
+CREATE INDEX IF NOT EXISTS idx_inventory_integrations_user_id ON inventory_integrations(user_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_integrations_type ON inventory_integrations(type);
+CREATE INDEX IF NOT EXISTS idx_inventory_integrations_platform ON inventory_integrations(platform);
+CREATE INDEX IF NOT EXISTS idx_inventory_integrations_active ON inventory_integrations(is_active);
+CREATE INDEX IF NOT EXISTS idx_inventory_integrations_created ON inventory_integrations(created_at);
+
+-- E-commerce QR Codes Table  
+CREATE TABLE IF NOT EXISTS ecommerce_qr_codes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('product', 'coupon', 'payment', 'inventory')),
+    
+    -- Type-specific data (JSON)
+    product_data JSONB, -- ProductQRData as JSON
+    coupon_data JSONB,  -- CouponQRData as JSON  
+    payment_data JSONB, -- PaymentQRData as JSON
+    
+    -- Inventory integration reference
+    inventory_integration_id UUID REFERENCES inventory_integrations(id) ON DELETE SET NULL,
+    
+    -- Analytics
+    views INTEGER DEFAULT 0,
+    scans INTEGER DEFAULT 0,
+    conversions INTEGER DEFAULT 0,
+    revenue DECIMAL(12,2) DEFAULT 0.00,
+    
+    -- Configuration
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for ecommerce_qr_codes
+CREATE INDEX IF NOT EXISTS idx_ecommerce_qr_codes_qr_code_id ON ecommerce_qr_codes(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_ecommerce_qr_codes_type ON ecommerce_qr_codes(type);
+CREATE INDEX IF NOT EXISTS idx_ecommerce_qr_codes_inventory_integration ON ecommerce_qr_codes(inventory_integration_id);
+CREATE INDEX IF NOT EXISTS idx_ecommerce_qr_codes_active ON ecommerce_qr_codes(is_active);
+CREATE INDEX IF NOT EXISTS idx_ecommerce_qr_codes_created ON ecommerce_qr_codes(created_at);
+
+-- E-commerce Analytics Events Table
+CREATE TABLE IF NOT EXISTS ecommerce_analytics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    qr_code_id UUID NOT NULL,
+    event_type VARCHAR(20) NOT NULL CHECK (event_type IN ('view', 'scan', 'conversion', 'payment')),
+    event_data JSONB, -- JSON with event-specific data
+    user_agent TEXT,
+    ip_address INET,
+    referrer TEXT,
+    location_data JSONB, -- JSON with geolocation data
+    device_info JSONB, -- JSON with device/browser info
+    session_id VARCHAR(255),
+    
+    -- E-commerce specific
+    product_id VARCHAR(255),
+    variant_id VARCHAR(255),
+    quantity INTEGER,
+    unit_price DECIMAL(12,2),
+    total_amount DECIMAL(12,2),
+    currency VARCHAR(3),
+    coupon_code VARCHAR(100),
+    discount_amount DECIMAL(12,2),
+    
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for ecommerce_analytics
+CREATE INDEX IF NOT EXISTS idx_ecommerce_analytics_qr_code_id ON ecommerce_analytics(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_ecommerce_analytics_event_type ON ecommerce_analytics(event_type);
+CREATE INDEX IF NOT EXISTS idx_ecommerce_analytics_created ON ecommerce_analytics(created_at);
+CREATE INDEX IF NOT EXISTS idx_ecommerce_analytics_product_id ON ecommerce_analytics(product_id);
+CREATE INDEX IF NOT EXISTS idx_ecommerce_analytics_session ON ecommerce_analytics(session_id);
+
+-- Inventory Items Table (for cached inventory data)
+CREATE TABLE IF NOT EXISTS inventory_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    integration_id UUID NOT NULL REFERENCES inventory_integrations(id) ON DELETE CASCADE,
+    external_id VARCHAR(255) NOT NULL, -- Product ID from external system
+    sku VARCHAR(255),
+    name VARCHAR(500) NOT NULL,
+    description TEXT,
+    price DECIMAL(12,2),
+    currency VARCHAR(3) DEFAULT 'USD',
+    stock_count INTEGER DEFAULT 0,
+    low_stock_threshold INTEGER DEFAULT 10,
+    category VARCHAR(255),
+    brand VARCHAR(255),
+    image_url TEXT,
+    product_url TEXT,
+    weight DECIMAL(8,2),
+    dimensions JSONB, -- JSON: {length, width, height, unit}
+    
+    -- Product variations/attributes
+    variants JSONB, -- JSON array of variants
+    attributes JSONB, -- JSON object with product attributes
+    
+    -- Sync metadata
+    external_updated_at TIMESTAMP,
+    last_synced_at TIMESTAMP DEFAULT NOW(),
+    sync_status VARCHAR(10) DEFAULT 'synced' CHECK (sync_status IN ('synced', 'error', 'pending')),
+    sync_error TEXT,
+    
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    UNIQUE(integration_id, external_id)
+);
+
+-- Add indexes for inventory_items
+CREATE INDEX IF NOT EXISTS idx_inventory_items_integration_id ON inventory_items(integration_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_external_id ON inventory_items(external_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_sku ON inventory_items(sku);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_name ON inventory_items(name);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items(category);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_brand ON inventory_items(brand);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_stock ON inventory_items(stock_count);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_price ON inventory_items(price);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_sync_status ON inventory_items(sync_status);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_active ON inventory_items(is_active);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_updated ON inventory_items(updated_at);
+
+-- Price Rules Table (for dynamic pricing)
+CREATE TABLE IF NOT EXISTS price_rules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    integration_id UUID REFERENCES inventory_integrations(id) ON DELETE CASCADE,
+    qr_code_id UUID REFERENCES qr_codes(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('percentage', 'fixed', 'bulk_discount')),
+    value DECIMAL(12,2) NOT NULL,
+    conditions JSONB NOT NULL, -- JSON array of conditions
+    priority INTEGER DEFAULT 0,
+    valid_from TIMESTAMP,
+    valid_to TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for price_rules
+CREATE INDEX IF NOT EXISTS idx_price_rules_integration_id ON price_rules(integration_id);
+CREATE INDEX IF NOT EXISTS idx_price_rules_qr_code_id ON price_rules(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_price_rules_type ON price_rules(type);
+CREATE INDEX IF NOT EXISTS idx_price_rules_priority ON price_rules(priority);
+CREATE INDEX IF NOT EXISTS idx_price_rules_active ON price_rules(is_active);
+CREATE INDEX IF NOT EXISTS idx_price_rules_valid_from ON price_rules(valid_from);
+CREATE INDEX IF NOT EXISTS idx_price_rules_valid_to ON price_rules(valid_to);
+
+-- Coupons Table (for coupon QR codes)
+CREATE TABLE IF NOT EXISTS coupons (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('percentage', 'fixed_amount', 'free_shipping', 'buy_x_get_y')),
+    value DECIMAL(12,2),
+    minimum_order_amount DECIMAL(12,2),
+    maximum_discount_amount DECIMAL(12,2),
+    usage_limit INTEGER,
+    usage_count INTEGER DEFAULT 0,
+    per_customer_usage_limit INTEGER DEFAULT 1,
+    applies_to VARCHAR(20) DEFAULT 'all' CHECK (applies_to IN ('all', 'specific_products', 'specific_categories')),
+    applicable_products JSONB, -- JSON array of product IDs
+    applicable_categories JSONB, -- JSON array of category IDs
+    starts_at TIMESTAMP,
+    ends_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for coupons
+CREATE INDEX IF NOT EXISTS idx_coupons_qr_code_id ON coupons(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
+CREATE INDEX IF NOT EXISTS idx_coupons_type ON coupons(type);
+CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons(is_active);
+CREATE INDEX IF NOT EXISTS idx_coupons_starts_at ON coupons(starts_at);
+CREATE INDEX IF NOT EXISTS idx_coupons_ends_at ON coupons(ends_at);
+CREATE INDEX IF NOT EXISTS idx_coupons_usage_limit ON coupons(usage_limit);
+
+-- Coupon Usage Tracking
+CREATE TABLE IF NOT EXISTS coupon_usage (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    coupon_id UUID NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    order_id VARCHAR(255),
+    discount_amount DECIMAL(12,2),
+    order_total DECIMAL(12,2),
+    used_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for coupon_usage
+CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_id ON coupon_usage(coupon_id);
+CREATE INDEX IF NOT EXISTS idx_coupon_usage_customer_id ON coupon_usage(customer_id);
+CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage(order_id);
+CREATE INDEX IF NOT EXISTS idx_coupon_usage_used_at ON coupon_usage(used_at);
+
+-- Payment Links Table (for payment QR codes)
+CREATE TABLE IF NOT EXISTS payment_links (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    qr_code_id UUID NOT NULL REFERENCES qr_codes(id) ON DELETE CASCADE,
+    amount DECIMAL(12,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'USD',
+    description TEXT,
+    payment_processor VARCHAR(20) NOT NULL CHECK (payment_processor IN ('stripe', 'paypal', 'square', 'manual')),
+    processor_payment_id VARCHAR(255), -- Payment ID from processor
+    processor_data JSONB, -- JSON with processor-specific data
+    
+    -- Payment status
+    status VARCHAR(10) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled', 'refunded')),
+    payment_method VARCHAR(50), -- 'card', 'bank_transfer', 'digital_wallet', etc.
+    transaction_fee DECIMAL(12,2),
+    net_amount DECIMAL(12,2),
+    
+    -- Customer info (optional)
+    customer_email VARCHAR(255),
+    customer_name VARCHAR(255),
+    billing_address JSONB, -- JSON
+    
+    -- Metadata
+    metadata JSONB, -- JSON for additional data
+    expires_at TIMESTAMP,
+    paid_at TIMESTAMP,
+    refunded_at TIMESTAMP,
+    
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for payment_links
+CREATE INDEX IF NOT EXISTS idx_payment_links_qr_code_id ON payment_links(qr_code_id);
+CREATE INDEX IF NOT EXISTS idx_payment_links_processor_payment_id ON payment_links(processor_payment_id);
+CREATE INDEX IF NOT EXISTS idx_payment_links_status ON payment_links(status);
+CREATE INDEX IF NOT EXISTS idx_payment_links_customer_email ON payment_links(customer_email);
+CREATE INDEX IF NOT EXISTS idx_payment_links_expires_at ON payment_links(expires_at);
+CREATE INDEX IF NOT EXISTS idx_payment_links_paid_at ON payment_links(paid_at);
+CREATE INDEX IF NOT EXISTS idx_payment_links_amount ON payment_links(amount);
+
+-- Webhook Events Table (for external integrations)
+CREATE TABLE IF NOT EXISTS webhook_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    integration_id UUID REFERENCES inventory_integrations(id) ON DELETE CASCADE,
+    event_type VARCHAR(100) NOT NULL,
+    event_source VARCHAR(50) NOT NULL, -- 'shopify', 'woocommerce', etc.
+    payload JSONB NOT NULL, -- Raw webhook payload
+    headers JSONB, -- Request headers as JSON
+    signature VARCHAR(255), -- Webhook signature for verification
+    processed BOOLEAN DEFAULT FALSE,
+    processed_at TIMESTAMP,
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for webhook_events
+CREATE INDEX IF NOT EXISTS idx_webhook_events_integration_id ON webhook_events(integration_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_event_type ON webhook_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_event_source ON webhook_events(event_source);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_processed ON webhook_events(processed);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_created ON webhook_events(created_at);
+
+-- Create triggers for updated_at columns
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply triggers to tables that need updated_at
+CREATE TRIGGER update_inventory_integrations_updated_at BEFORE UPDATE ON inventory_integrations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_ecommerce_qr_codes_updated_at BEFORE UPDATE ON ecommerce_qr_codes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_inventory_items_updated_at BEFORE UPDATE ON inventory_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_price_rules_updated_at BEFORE UPDATE ON price_rules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_coupons_updated_at BEFORE UPDATE ON coupons FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_payment_links_updated_at BEFORE UPDATE ON payment_links FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ===============================================
 -- DATABASE SCHEMA COMPLETE
 -- All features implemented:
 -- - Core QR SaaS Platform
@@ -2670,4 +2990,5 @@ COMMENT ON COLUMN sdk_generation_jobs.expires_at IS 'When the SDK download link 
 -- - Advanced Analytics
 -- - Payment Processing
 -- - API & Integrations (SDK Generation)
+-- - E-commerce QR Service
 -- ===============================================

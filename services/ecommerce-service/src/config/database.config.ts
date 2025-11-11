@@ -1,0 +1,95 @@
+import { Pool, PoolConfig } from 'pg';
+import { ILogger } from '../interfaces';
+
+export class DatabaseConfig {
+  private static instance: Pool;
+  private static logger: ILogger;
+
+  public static initialize(logger: ILogger): Pool {
+    if (!DatabaseConfig.instance) {
+      DatabaseConfig.logger = logger;
+      
+      let config: PoolConfig;
+      
+      if (process.env.DATABASE_URL) {
+        config = {
+          connectionString: process.env.DATABASE_URL,
+          max: parseInt(process.env.DB_POOL_MAX || '20'),
+          min: parseInt(process.env.DB_POOL_MIN || '5'),
+          idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
+          connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '5000'),
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        };
+      } else {
+        config = {
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT || '5432'),
+          database: process.env.DB_NAME || 'qr_saas',
+          user: process.env.DB_USER || 'qr_user',
+          password: process.env.DB_PASSWORD || 'qr_password',
+          max: parseInt(process.env.DB_POOL_MAX || '20'),
+          min: parseInt(process.env.DB_POOL_MIN || '5'),
+          idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
+          connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '5000'),
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        };
+      }
+
+      DatabaseConfig.instance = new Pool(config);
+
+      DatabaseConfig.instance.on('connect', (client) => {
+        DatabaseConfig.logger.info('E-commerce Service: Database connection established', {
+          totalCount: DatabaseConfig.instance.totalCount,
+          idleCount: DatabaseConfig.instance.idleCount,
+          waitingCount: DatabaseConfig.instance.waitingCount
+        });
+      });
+
+      DatabaseConfig.instance.on('error', (err) => {
+        DatabaseConfig.logger.error('E-commerce Service: Database pool error', { error: err.message });
+      });
+
+      DatabaseConfig.instance.on('remove', () => {
+        DatabaseConfig.logger.info('E-commerce Service: Database connection removed from pool');
+      });
+
+      DatabaseConfig.logger.info('E-commerce Service: Database connection pool initialized', {
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        maxConnections: config.max
+      });
+    }
+
+    return DatabaseConfig.instance;
+  }
+
+  public static async testConnection(): Promise<boolean> {
+    try {
+      const client = await DatabaseConfig.instance.connect();
+      await client.query('SELECT NOW()');
+      client.release();
+      DatabaseConfig.logger.info('E-commerce Service: Database connection test successful');
+      return true;
+    } catch (error) {
+      DatabaseConfig.logger.error('E-commerce Service: Database connection test failed', { 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      return false;
+    }
+  }
+
+  public static async close(): Promise<void> {
+    if (DatabaseConfig.instance) {
+      await DatabaseConfig.instance.end();
+      DatabaseConfig.logger.info('E-commerce Service: Database connection pool closed');
+    }
+  }
+
+  public static getPool(): Pool {
+    if (!DatabaseConfig.instance) {
+      throw new Error('Database not initialized. Call DatabaseConfig.initialize() first.');
+    }
+    return DatabaseConfig.instance;
+  }
+}

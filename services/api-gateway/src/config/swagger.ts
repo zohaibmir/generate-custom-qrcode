@@ -2,6 +2,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 import { SwaggerDefinition } from 'swagger-jsdoc';
 import { bulkQRSchemas } from '../docs/bulk-qr-routes';
 import { paymentSchemas } from '../docs/payment-routes';
+import { ecommerceSchemas } from '../docs/ecommerce-swagger';
 
 const swaggerDefinition: SwaggerDefinition = {
   openapi: '3.0.0',
@@ -663,6 +664,7 @@ Import the included Postman collection for comprehensive API testing.
       },
       ...bulkQRSchemas,
       ...paymentSchemas,
+      ...ecommerceSchemas,
       // Advanced QR Features Schemas
       QRContentRule: {
         type: 'object',
@@ -1541,6 +1543,10 @@ Import the included Postman collection for comprehensive API testing.
     {
       name: 'Payments',
       description: 'Payment processing with multiple providers including Swish for Swedish market (60%+ coverage), Stripe, Klarna, and PayPal'
+    },
+    {
+      name: 'E-commerce',
+      description: 'E-commerce QR functionality including inventory integrations, product QR codes, coupon codes, payment links, and comprehensive analytics'
     }
   ]
 };
@@ -1557,6 +1563,7 @@ const options = {
     './src/docs/team-routes.ts',
     './src/docs/analytics-files-routes.ts',
     './src/docs/landing-page-routes.ts',
+    './src/docs/ecommerce-swagger.ts',
     './src/index.ts',
     './src/app.ts'
   ]

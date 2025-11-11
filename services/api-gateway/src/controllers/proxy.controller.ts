@@ -91,6 +91,12 @@ export class ProxyController {
         targetService: 'team-service',
         pathRewrite: '/api/v1',
         requiresAuth: true
+      },
+      {
+        path: '/api/ecommerce',
+        targetService: 'ecommerce-service',
+        pathRewrite: '/api',
+        requiresAuth: true // E-commerce operations require authentication
       }
     ];
   }

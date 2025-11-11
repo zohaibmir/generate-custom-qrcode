@@ -190,6 +190,42 @@ services:
       - landing_page_service_node_modules:/app/node_modules
     restart: unless-stopped
 
+  ecommerce-service:
+    build: ./services/ecommerce-service
+    ports:
+      - "3011:3011"
+    environment:
+      - NODE_ENV=development
+      - PORT=3011
+      - DATABASE_URL=postgresql://qr_user:qr_password@postgres:5432/qr_saas
+      - REDIS_URL=redis://redis:6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=qr_saas
+      - DB_USER=qr_user
+      - DB_PASSWORD=qr_password
+      - ENCRYPTION_KEY=your-super-secret-encryption-key-change-in-production-32chars
+      - ENCRYPTION_ALGORITHM=aes-256-cbc
+      - SHOPIFY_WEBHOOK_SECRET=your-shopify-webhook-secret
+      - WOOCOMMERCE_WEBHOOK_SECRET=your-woocommerce-webhook-secret
+      - STRIPE_API_KEY=sk_test_your_stripe_api_key
+      - STRIPE_WEBHOOK_SECRET=whsec_your_stripe_webhook_secret
+      - PAYPAL_CLIENT_ID=your-paypal-client-id
+      - PAYPAL_CLIENT_SECRET=your-paypal-client-secret
+      - ECOMMERCE_RATE_LIMIT_AUTH=1000
+      - ECOMMERCE_RATE_LIMIT_ANON=100
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - qr-network
+    volumes:
+      - ./services/ecommerce-service/src:/app/src
+      - ecommerce_service_node_modules:/app/node_modules
+    restart: unless-stopped
+
   # API Gateway (last to ensure all services are up)
   api-gateway:
     build: ./services/api-gateway
@@ -206,6 +242,7 @@ services:
       - FILE_SERVICE_URL=http://file-service:3004
       - NOTIFICATION_SERVICE_URL=http://notification-service:3005
       - LANDING_PAGE_SERVICE_URL=http://landing-page-service:3010
+      - ECOMMERCE_SERVICE_URL=http://ecommerce-service:3011
     depends_on:
       redis:
         condition: service_healthy
@@ -220,6 +257,8 @@ services:
       notification-service:
         condition: service_started
       landing-page-service:
+        condition: service_started
+      ecommerce-service:
         condition: service_started
     networks:
       - qr-network
@@ -243,3 +282,5 @@ volumes:
   file_service_node_modules:
   notification_service_node_modules:
   landing_page_service_node_modules:
+  team_service_node_modules:
+  ecommerce_service_node_modules:
