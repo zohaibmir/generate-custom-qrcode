@@ -136,7 +136,8 @@ class ApiGatewayApplication {
           'api-service': 'API keys, webhooks, SDK generation, and third-party integrations',
           'team-service': 'Team and organization management with member invitations',
           'landing-page-service': 'Landing page builder with A/B testing and forms',
-          'payment-processing': 'Multi-provider payments: Swish (Swedish), Stripe, Klarna, PayPal'
+          'payment-processing': 'Multi-provider payments: Swish (Swedish), Stripe, Klarna, PayPal',
+          'admin-dashboard-service': 'Admin authentication, content management, and dashboard APIs'
         },
         database: 'PostgreSQL with complete persistence',
         architecture: 'Clean Architecture with SOLID principles',
@@ -336,6 +337,15 @@ class ApiGatewayApplication {
     
     this.app.all('/api/public/*', async (req, res) => {
       await this.proxyRequest(req, res, 'api-service', '/api/public', '/api/v1/public');
+    });
+
+    // Admin Dashboard routes - handle admin authentication and dashboard API
+    this.app.all('/api/admin', async (req, res) => {
+      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin', '/api');
+    });
+    
+    this.app.all('/api/admin/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin', '/api');
     });
 
     // Public landing page access (special route)
