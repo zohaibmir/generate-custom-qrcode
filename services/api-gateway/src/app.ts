@@ -339,6 +339,15 @@ class ApiGatewayApplication {
       await this.proxyRequest(req, res, 'api-service', '/api/public', '/api/v1/public');
     });
 
+    // Admin Authentication routes - handle admin login/logout/auth
+    this.app.all('/api/admin/auth', async (req, res) => {
+      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin/auth', '/auth');
+    });
+    
+    this.app.all('/api/admin/auth/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin/auth', '/auth');
+    });
+
     // Admin Dashboard routes - handle admin authentication and dashboard API
     this.app.all('/api/admin', async (req, res) => {
       await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin', '/api');
