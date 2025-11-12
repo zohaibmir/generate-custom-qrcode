@@ -21,7 +21,17 @@
 
 **🚀 Current Status: Phase 5 - Payment Processing Complete (Swedish market ready with Swish integration)**  
 
-## �🇪 Swedish Market Strategy - **PAYMENT READY**
+## 🎨 Frontend Repository
+
+**React Frontend**: https://github.com/zohaibmir/qr-saas-frontend
+- Modern React.js application with TypeScript
+- Material-UI/Ant Design components
+- Dashboard for QR code management
+- Analytics visualization
+- Payment integration interface
+- Responsive mobile-first design
+
+## 🇸🇪 Swedish Market Strategy - **PAYMENT READY**
 
 ### Swish Integration Advantages
 - **Market Dominance**: 60%+ of Swedish mobile payment market share
