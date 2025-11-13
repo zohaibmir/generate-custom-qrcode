@@ -1,0 +1,14 @@
+# Database backups
+backup_*.sql
+
+# Log files
+migration_*.log
+cleanup_*.log
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Local environment files
+.env.local
