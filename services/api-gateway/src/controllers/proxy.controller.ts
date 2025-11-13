@@ -57,6 +57,12 @@ export class ProxyController {
         requiresAuth: true // Marketing tools require authentication
       },
       {
+        path: '/api/cross-campaign',
+        targetService: 'analytics-service',
+        pathRewrite: '/cross-campaign',
+        requiresAuth: true // Cross-campaign analysis requires authentication
+      },
+      {
         path: '/api/files',
         targetService: 'file-service',
         pathRewrite: '/files',

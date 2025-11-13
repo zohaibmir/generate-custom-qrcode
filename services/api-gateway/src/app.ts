@@ -139,7 +139,8 @@ class ApiGatewayApplication {
           'payment-processing': 'Multi-provider payments: Swish (Swedish), Stripe, Klarna, PayPal',
           'admin-dashboard-service': 'Admin authentication, content management, and dashboard APIs',
           'business-tools-service': 'Custom domains, white labeling, and GDPR compliance management',
-          'sso-service': 'Enterprise SSO with SAML, OAuth2, OIDC, and LDAP authentication providers'
+          'sso-service': 'Enterprise SSO with SAML, OAuth2, OIDC, and LDAP authentication providers',
+          'data-retention-service': 'Enterprise data retention policies, archival, and automated cleanup'
         },
         database: 'PostgreSQL with complete persistence',
         architecture: 'Clean Architecture with SOLID principles',
@@ -416,6 +417,15 @@ class ApiGatewayApplication {
     
     this.app.all('/api/sso/*', async (req, res) => {
       await this.proxyRequest(req, res, 'sso-service', '/api/sso', '/api/v1/sso');
+    });
+
+    // Data Retention routes - handle enterprise data retention policies and cleanup
+    this.app.all('/api/data-retention', async (req, res) => {
+      await this.proxyRequest(req, res, 'data-retention-service', '/api/data-retention', '/api/v1/data-retention');
+    });
+    
+    this.app.all('/api/data-retention/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'data-retention-service', '/api/data-retention', '/api/v1/data-retention');
     });
 
     // Public landing page access (special route)

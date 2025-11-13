@@ -266,13 +266,38 @@ export interface AnalyticsAlert {
 // Analytics Dashboard Types
 export interface DashboardWidget {
   id: string;
-  type: 'metric' | 'chart' | 'table' | 'map' | 'heatmap';
+  dashboardId?: string;
+  type: 'metric' | 'chart' | 'table' | 'map' | 'heatmap' | 'gauge' | 'text';
   title: string;
   position: { x: number; y: number; width: number; height: number };
   configuration: Record<string, any>;
   dataSource: string;
+  dataFilters?: Record<string, any>;
   refreshInterval: number;
   isVisible: boolean;
+  isRealTime?: boolean;
+  cacheDuration?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface DashboardLayout {
+  columns: number;
+  rowHeight: number;
+  margin: [number, number];
+  containerPadding: [number, number];
+  compactType?: 'vertical' | 'horizontal';
+  preventCollision?: boolean;
+}
+
+export interface DashboardTheme {
+  mode: 'light' | 'dark' | 'auto';
+  primaryColor: string;
+  backgroundColor: string;
+  cardBackground: string;
+  textColor: string;
+  borderColor: string;
+  fontFamily?: string;
 }
 
 export interface AnalyticsDashboard {
@@ -280,14 +305,78 @@ export interface AnalyticsDashboard {
   userId: string;
   name: string;
   description?: string;
-  isDefault: boolean;
+  layout?: DashboardLayout;
+  theme?: DashboardTheme;
+  category?: string;
+  isPublic?: boolean;
+  isTemplate?: boolean;
+  isFavorite?: boolean;
+  viewCount?: number;
+  tags?: string[];
   widgets: DashboardWidget[];
-  layout: 'grid' | 'flex' | 'custom';
-  theme: 'light' | 'dark' | 'auto';
-  autoRefresh: boolean;
-  refreshInterval: number;
+  sharedWith?: string[];
   createdAt: Date;
   updatedAt: Date;
+  ownerEmail?: string;
+  ownerName?: string;
+  widgetCount?: number;
+  shareCount?: number;
+  isFavorited?: boolean;
+}
+
+export interface DashboardTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  thumbnailUrl?: string;
+  layout: DashboardLayout;
+  theme: DashboardTheme;
+  widgetConfigs: any[];
+  tags: string[];
+  isPremium?: boolean;
+  usageCount?: number;
+  rating?: number;
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WidgetDataSource {
+  id: string;
+  name: string;
+  type: 'analytics' | 'qr_codes' | 'campaigns' | 'ecommerce' | 'content' | 'custom';
+  endpoint?: string;
+  authentication?: {
+    type: 'none' | 'api_key' | 'oauth' | 'basic';
+    configuration: Record<string, any>;
+  };
+  parameters?: Record<string, any>;
+  refreshRate?: number;
+  isActive: boolean;
+}
+
+export interface DashboardShare {
+  id: number;
+  dashboardId: string;
+  sharedBy: string;
+  sharedWith?: string;
+  shareType: 'view' | 'edit' | 'admin';
+  accessToken?: string;
+  expiresAt?: Date;
+  passwordHash?: string;
+  createdAt: Date;
+}
+
+export interface DashboardActivity {
+  id: number;
+  dashboardId: string;
+  userId: string;
+  action: 'created' | 'updated' | 'viewed' | 'shared' | 'exported' | 'deleted';
+  details?: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: Date;
 }
 
 // Advanced Analytics Requests

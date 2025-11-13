@@ -213,6 +213,25 @@ export interface IRealTimeAnalyticsService {
   broadcastUpdate(qrCodeId: string, metrics: RealTimeMetrics): Promise<ServiceResponse<void>>;
 }
 
+export interface IAlertEngineService {
+  startAlertEngine(): Promise<ServiceResponse<void>>;
+  stopAlertEngine(): Promise<ServiceResponse<void>>;
+  createAlertRule(request: CreateAlertRuleRequest): Promise<ServiceResponse<AlertRule>>;
+  updateAlertRule(alertRuleId: string, updates: UpdateAlertRuleRequest): Promise<ServiceResponse<AlertRule>>;
+  deleteAlertRule(alertRuleId: string): Promise<ServiceResponse<void>>;
+  evaluateMetric(context: any): Promise<ServiceResponse<AlertRuleEvaluation[]>>;
+  getActiveAlerts(userId: string, filters?: { qrCodeId?: string; severity?: string }): Promise<ServiceResponse<AlertInstance[]>>;
+  acknowledgeAlert(alertInstanceId: string, userId: string, notes?: string): Promise<ServiceResponse<void>>;
+  resolveAlert(alertInstanceId: string, userId: string, resolutionNotes?: string): Promise<ServiceResponse<void>>;
+}
+
+export interface INotificationService {
+  sendEmail(request: any): Promise<ServiceResponse<any>>;
+  sendSMS(request: any): Promise<ServiceResponse<any>>;
+  getNotificationStatus(messageId: string): Promise<ServiceResponse<any>>;
+  getUserNotifications(userId: string, type?: 'email' | 'sms'): Promise<ServiceResponse<any[]>>;
+}
+
 // Additional Types for Advanced Features
 export interface ConversionAnalytics {
   totalConversions: number;
@@ -503,6 +522,103 @@ export interface RealTimeMetrics {
     timestamp: Date;
   }>;
 }
+
+// Alert System Types
+export interface AlertRule {
+  id: string;
+  userId: string;
+  qrCodeId?: string;
+  name: string;
+  description?: string;
+  ruleType: 'threshold' | 'anomaly' | 'trend' | 'custom';
+  metricType: string;
+  conditions: Record<string, any>;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  isActive: boolean;
+  cooldownMinutes: number;
+  aggregationWindow: number;
+  notificationChannels: NotificationChannel[];
+  notificationSettings: Record<string, any>;
+  lastTriggered?: Date;
+  triggeredCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AlertInstance {
+  id: string;
+  alertRuleId: string;
+  qrCodeId?: string;
+  status: 'active' | 'resolved' | 'muted';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  title: string;
+  message: string;
+  triggerValue: number;
+  thresholdValue?: number;
+  metricData: Record<string, any>;
+  contextData: Record<string, any>;
+  triggeredAt: Date;
+  resolvedAt?: Date;
+  mutedUntil?: Date;
+  acknowledgment?: Record<string, any>;
+  resolutionNotes?: string;
+}
+
+export interface AlertNotification {
+  id: string;
+  alertInstanceId: string;
+  channel: NotificationChannel;
+  recipient: string;
+  status: 'pending' | 'sent' | 'delivered' | 'failed';
+  sentAt?: Date;
+  deliveredAt?: Date;
+  errorMessage?: string;
+  retryCount: number;
+  createdAt: Date;
+}
+
+export interface AlertMetric {
+  id: string;
+  alertRuleId: string;
+  dateBucket: Date;
+  triggersCount: number;
+  falsePositiveCount: number;
+  averageResolutionTime?: number;
+  notificationsSent: number;
+  notificationsFailed: number;
+  createdAt: Date;
+}
+
+export interface CreateAlertRuleRequest {
+  userId: string;
+  qrCodeId?: string;
+  name: string;
+  description?: string;
+  ruleType: 'threshold' | 'anomaly' | 'trend' | 'custom';
+  metricType: string;
+  conditions: Record<string, any>;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  isActive?: boolean;
+  cooldownMinutes?: number;
+  aggregationWindow?: number;
+  notificationChannels?: NotificationChannel[];
+  notificationSettings?: Record<string, any>;
+}
+
+export interface UpdateAlertRuleRequest extends Partial<CreateAlertRuleRequest> {
+  id?: never; // Prevent ID updates
+}
+
+export interface AlertRuleEvaluation {
+  ruleId: string;
+  triggered: boolean;
+  metricValue: number;
+  thresholdValue?: number;
+  evaluatedAt: Date;
+  reason: string;
+}
+
+export type NotificationChannel = 'email' | 'sms' | 'slack' | 'webhook';
 
 // Infrastructure Interfaces
 export interface ILogger {

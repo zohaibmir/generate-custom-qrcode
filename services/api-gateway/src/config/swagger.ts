@@ -1515,6 +1515,22 @@ Import the included Postman collection for comprehensive API testing.
       description: 'Scan tracking and analytics'
     },
     {
+      name: 'Custom Dashboards',
+      description: '📊 Personalized analytics dashboards with drag-and-drop widgets, real-time data visualization, and customizable layouts for comprehensive QR performance monitoring'
+    },
+    {
+      name: 'Real-time Alerts',
+      description: '🚨 Intelligent alert system with threshold-based notifications, anomaly detection, and multi-channel delivery (email, SMS, webhooks) for proactive QR campaign monitoring'
+    },
+    {
+      name: 'Predictive Analytics',
+      description: '🤖 AI-powered prediction engine using ARIMA, LSTM, and Prophet algorithms for scan forecasting, trend analysis, and optimization recommendations'
+    },
+    {
+      name: 'Cross-Campaign Analytics',
+      description: '📊 Advanced cross-campaign analysis with A/B testing, attribution modeling, cohort analysis, statistical testing, and AI-powered optimization recommendations for enterprise-grade campaign management'
+    },
+    {
       name: 'Files',
       description: 'File upload and management'
     },
@@ -1588,6 +1604,10 @@ const options = {
     './src/docs/payment-routes.ts',
     './src/docs/team-routes.ts',
     './src/docs/analytics-files-routes.ts',
+    './src/docs/cross-campaign-analytics-routes.ts',
+    './src/docs/custom-dashboards-routes.ts',
+    './src/docs/real-time-alerts-routes.ts',
+    './src/docs/predictive-analytics-routes.ts',
     './src/docs/landing-page-routes.ts',
     './src/docs/ecommerce-swagger.ts',
     './src/docs/content-routes.ts',

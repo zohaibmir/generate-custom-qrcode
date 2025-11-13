@@ -89,6 +89,12 @@ export class ServiceRegistry implements IServiceRegistry {
         url: process.env.SSO_SERVICE_URL || 'http://localhost:3015',
         healthPath: '/health',
         timeout: 5000
+      },
+      {
+        name: 'data-retention-service',
+        url: process.env.DATA_RETENTION_SERVICE_URL || 'http://localhost:3016',
+        healthPath: '/health',
+        timeout: 5000
       }
     ];
 

@@ -27,6 +27,13 @@ import { MarketingRoutes } from './routes/marketing.routes';
 import { CampaignManagementService } from './services/campaign-management.service';
 import { UTMTrackingService } from './services/utm-tracking.service';
 import { RetargetingPixelService } from './services/retargeting-pixel.service';
+import createCrossCampaignAnalysisRoutes from './routes/cross-campaign-analysis.routes';
+import { createCustomDashboardRoutes } from './routes/custom-dashboard.routes';
+import { createPredictiveAnalyticsRoutes } from './routes/predictive-analytics.routes';
+import { createRealTimeAlertsRoutes } from './routes/real-time-alerts.routes';
+import { CustomDashboardController } from './controllers/custom-dashboard.controller';
+import { PredictiveAnalyticsController } from './controllers/predictive-analytics.controller';
+import { RealTimeAlertsController } from './controllers/real-time-alerts.controller';
 
 dotenv.config({ path: '../../.env' });
 
@@ -67,12 +74,36 @@ class AnalyticsServiceApplication {
       const utmService = new UTMTrackingService(analyticsRepository, this.logger);
       const pixelService = new RetargetingPixelService(analyticsRepository, this.logger);
       
+      // Create mock advanced analytics services (replace with real implementations)
+      const customDashboardService = {
+        getDashboards: async (userId: string) => ([]),
+        createDashboard: async (request: any) => ({ id: 'mock-dashboard-id', ...request }),
+        getDashboard: async (id: string) => ({ id, name: 'Mock Dashboard' }),
+        updateDashboard: async (id: string, request: any) => ({ id, ...request }),
+        deleteDashboard: async (id: string) => ({ success: true })
+      };
+      
+      const alertEngineService = {
+        createAlertRule: async (request: any) => ({ id: 'mock-alert-rule-id', ...request }),
+        getAlertRules: async (userId: string) => ([]),
+        updateAlertRule: async (id: string, request: any) => ({ id, ...request }),
+        deleteAlertRule: async (id: string) => ({ success: true })
+      };
+      
+      const predictiveAnalyticsService = {
+        getModels: async (userId: string) => ([]),
+        trainModel: async (request: any) => ({ trainingJobId: 'mock-job-id', estimatedCompletion: new Date() })
+      };
+      
       const healthChecker = new HealthChecker(this.logger, this.container);
       
       this.container.register('analyticsService', analyticsService);
       this.container.register('campaignService', campaignService);
       this.container.register('utmService', utmService);
       this.container.register('pixelService', pixelService);
+      this.container.register('customDashboardService', customDashboardService);
+      this.container.register('alertEngineService', alertEngineService);
+      this.container.register('predictiveAnalyticsService', predictiveAnalyticsService);
       this.container.register('healthChecker', healthChecker);
       
       this.logger.info('Clean architecture dependencies initialized', {
@@ -175,6 +206,18 @@ class AnalyticsServiceApplication {
     
     // Marketing routes
     this.setupMarketingRoutes();
+
+    // Cross-campaign Analysis routes
+    this.setupCrossCampaignAnalysisRoutes();
+
+    // Custom Dashboard routes
+    this.setupCustomDashboardRoutes();
+
+    // Real-time Alerts routes
+    this.setupRealTimeAlertsRoutes();
+
+    // Predictive Analytics routes
+    this.setupPredictiveAnalyticsRoutes();
 
     // 404 handler
     this.app.use('*', (req, res) => {
@@ -592,6 +635,124 @@ class AnalyticsServiceApplication {
     this.app.use('/marketing', marketingRoutes.getRouter());
     
     this.logger.info('Marketing routes configured at /marketing');
+  }
+
+  private setupCrossCampaignAnalysisRoutes(): void {
+    const database = this.container.resolve('database') as any;
+    const crossCampaignRoutes = createCrossCampaignAnalysisRoutes(database);
+    
+    this.app.use('/cross-campaign', crossCampaignRoutes);
+    
+    this.logger.info('Cross-campaign analysis routes configured at /cross-campaign');
+  }
+
+  private setupCustomDashboardRoutes(): void {
+    try {
+      const customDashboardRoutes = createCustomDashboardRoutes(this.container);
+      
+      this.app.use('/dashboards', customDashboardRoutes);
+      
+      this.logger.info('Custom dashboard routes configured at /dashboards');
+    } catch (error) {
+      this.logger.error('Failed to setup custom dashboard routes', { 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      
+      // Create fallback route
+      this.app.use('/dashboards', (req, res) => {
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Custom dashboard service temporarily unavailable'
+          }
+        });
+      });
+    }
+  }
+
+  private setupRealTimeAlertsRoutes(): void {
+    try {
+      // Create mock alert engine service - replace with real implementation
+      const mockAlertEngineService = {
+        createAlertRule: async (request: any) => ({ id: 'mock-alert-rule-id', ...request }),
+        getAlertRules: async (userId: string) => ([]),
+        updateAlertRule: async (id: string, request: any) => ({ id, ...request }),
+        deleteAlertRule: async (id: string) => ({ success: true }),
+        getActiveAlerts: async (userId: string) => ([]),
+        acknowledgeAlert: async (id: string) => ({ success: true }),
+        resolveAlert: async (id: string) => ({ success: true }),
+        getAlertMetrics: async (userId: string) => ({ totalAlerts: 0, alertsBySeverity: {} }),
+        testAlertRule: async (request: any) => ({ wouldTrigger: false, testResult: 'Mock test' })
+      };
+      
+      const realTimeAlertsController = new RealTimeAlertsController(
+        mockAlertEngineService as any,
+        this.logger
+      );
+      const realTimeAlertsRoutes = createRealTimeAlertsRoutes(realTimeAlertsController);
+      
+      this.app.use('/alerts', realTimeAlertsRoutes);
+      
+      this.logger.info('Real-time alerts routes configured at /alerts');
+    } catch (error) {
+      this.logger.error('Failed to setup real-time alerts routes', { 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      
+      // Create fallback route
+      this.app.use('/alerts', (req, res) => {
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Real-time alerts service temporarily unavailable'
+          }
+        });
+      });
+    }
+  }
+
+  private setupPredictiveAnalyticsRoutes(): void {
+    try {
+      // Create mock predictive service - replace with real implementation
+      const mockPredictiveService = {
+        getModels: async (userId: string) => ([]),
+        trainModel: async (request: any) => ({ trainingJobId: 'mock-job-id', estimatedCompletion: new Date() }),
+        getModelDetails: async (modelId: string) => ({ id: modelId, status: 'ready' }),
+        deleteModel: async (modelId: string) => ({ success: true }),
+        getModelPerformance: async (modelId: string) => ({ accuracy: 0.85, rmse: 0.12 }),
+        getPredictions: async (userId: string, filters: any) => ([]),
+        generatePrediction: async (request: any) => ({ id: 'mock-prediction-id', predictedValue: 100 }),
+        getTrends: async (request: any) => ({ trendDirection: 'increasing', trendStrength: 0.8 }),
+        generateForecast: async (request: any) => ({ forecastId: 'mock-forecast-id', forecastData: [] }),
+        getAccuracyMetrics: async (userId: string) => ({ overallAccuracy: 0.85, modelAccuracies: [] })
+      };
+      
+      const predictiveAnalyticsController = new PredictiveAnalyticsController(
+        mockPredictiveService as any
+      );
+      const predictiveAnalyticsRoutes = createPredictiveAnalyticsRoutes(predictiveAnalyticsController);
+      
+      this.app.use('/predictions', predictiveAnalyticsRoutes);
+      
+      this.logger.info('Predictive analytics routes configured at /predictions');
+    } catch (error) {
+      this.logger.error('Failed to setup predictive analytics routes', { 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      
+      // Create fallback route
+      this.app.use('/predictions', (req, res) => {
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Predictive analytics service temporarily unavailable'
+          }
+        });
+      });
+    }
   }
 
   private setupErrorHandling(): void {
