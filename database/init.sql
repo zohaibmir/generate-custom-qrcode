@@ -4082,6 +4082,255 @@ CREATE INDEX IF NOT EXISTS idx_gdpr_audit_logs_timestamp ON gdpr_audit_logs(time
 CREATE INDEX IF NOT EXISTS idx_gdpr_audit_logs_admin_id ON gdpr_audit_logs(admin_user_id);
 
 -- ===============================================
+-- SSO (Single Sign-On) ENTERPRISE SECURITY SYSTEM
+-- ===============================================
+
+-- SSO Provider Configurations
+CREATE TABLE sso_providers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('saml', 'oauth2', 'oidc', 'ldap', 'google', 'microsoft', 'github')),
+    is_enabled BOOLEAN DEFAULT true,
+    is_default BOOLEAN DEFAULT false,
+    display_name VARCHAR(200),
+    description TEXT,
+    logo_url TEXT,
+    button_text VARCHAR(100) DEFAULT 'Sign in',
+    sort_order INTEGER DEFAULT 0,
+    
+    -- Provider-specific configuration (JSON)
+    configuration JSONB NOT NULL DEFAULT '{}',
+    
+    -- Security settings
+    force_authn BOOLEAN DEFAULT false,
+    allow_create_user BOOLEAN DEFAULT true,
+    require_email_verification BOOLEAN DEFAULT false,
+    
+    -- Status and metadata
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'testing')),
+    last_test_at TIMESTAMP,
+    last_test_result TEXT,
+    error_count INTEGER DEFAULT 0,
+    last_error TEXT,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    
+    UNIQUE(organization_id, name)
+);
+
+-- SSO User Identities (links external identities to local users)
+CREATE TABLE sso_user_identities (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider_id UUID NOT NULL REFERENCES sso_providers(id) ON DELETE CASCADE,
+    external_id VARCHAR(500) NOT NULL,
+    external_username VARCHAR(255),
+    external_email VARCHAR(255),
+    external_display_name VARCHAR(255),
+    
+    -- Attributes from SSO provider
+    attributes JSONB DEFAULT '{}',
+    
+    -- Authentication details
+    first_login_at TIMESTAMP DEFAULT NOW(),
+    last_login_at TIMESTAMP DEFAULT NOW(),
+    login_count INTEGER DEFAULT 1,
+    
+    -- Status
+    is_active BOOLEAN DEFAULT true,
+    is_verified BOOLEAN DEFAULT false,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    UNIQUE(provider_id, external_id)
+);
+
+-- SSO Authentication Sessions
+CREATE TABLE sso_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id VARCHAR(255) UNIQUE NOT NULL,
+    provider_id UUID NOT NULL REFERENCES sso_providers(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Session state
+    state VARCHAR(20) NOT NULL CHECK (state IN ('initiated', 'authenticated', 'completed', 'failed', 'expired')),
+    
+    -- SSO flow data
+    auth_request_id VARCHAR(255),
+    redirect_url TEXT,
+    response_data JSONB,
+    error_data JSONB,
+    
+    -- Security
+    ip_address INET,
+    user_agent TEXT,
+    
+    -- Timestamps
+    initiated_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    
+    INDEX idx_sso_sessions_session_id (session_id),
+    INDEX idx_sso_sessions_provider_id (provider_id),
+    INDEX idx_sso_sessions_user_id (user_id),
+    INDEX idx_sso_sessions_state (state),
+    INDEX idx_sso_sessions_expires_at (expires_at)
+);
+
+-- SSO Configuration Templates (predefined provider configurations)
+CREATE TABLE sso_config_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    provider_type VARCHAR(20) NOT NULL,
+    display_name VARCHAR(200) NOT NULL,
+    description TEXT,
+    logo_url TEXT,
+    
+    -- Template configuration
+    config_template JSONB NOT NULL,
+    required_fields JSONB NOT NULL DEFAULT '[]',
+    optional_fields JSONB NOT NULL DEFAULT '[]',
+    
+    -- Documentation
+    setup_instructions TEXT,
+    documentation_url TEXT,
+    
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- SSO Attribute Mappings (map external attributes to user fields)
+CREATE TABLE sso_attribute_mappings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    provider_id UUID NOT NULL REFERENCES sso_providers(id) ON DELETE CASCADE,
+    
+    -- Mapping configuration
+    external_attribute VARCHAR(255) NOT NULL,
+    internal_field VARCHAR(100) NOT NULL,
+    is_required BOOLEAN DEFAULT false,
+    default_value TEXT,
+    transform_expression TEXT,
+    
+    -- Field type for validation
+    field_type VARCHAR(50) DEFAULT 'string' CHECK (field_type IN ('string', 'email', 'boolean', 'number', 'date', 'json')),
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    UNIQUE(provider_id, external_attribute)
+);
+
+-- SSO Audit Logs
+CREATE TABLE sso_audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    provider_id UUID REFERENCES sso_providers(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    session_id UUID REFERENCES sso_sessions(id) ON DELETE SET NULL,
+    
+    -- Event details
+    event_type VARCHAR(50) NOT NULL,
+    event_category VARCHAR(30) NOT NULL CHECK (event_category IN ('authentication', 'configuration', 'user_management', 'error')),
+    event_description TEXT NOT NULL,
+    
+    -- Event data
+    event_data JSONB,
+    
+    -- Request details
+    ip_address INET,
+    user_agent TEXT,
+    request_id VARCHAR(100),
+    
+    -- Status
+    status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'failure', 'warning', 'info')),
+    error_code VARCHAR(50),
+    error_message TEXT,
+    
+    -- Performance
+    duration_ms INTEGER,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    
+    INDEX idx_sso_audit_logs_provider_id (provider_id),
+    INDEX idx_sso_audit_logs_user_id (user_id),
+    INDEX idx_sso_audit_logs_session_id (session_id),
+    INDEX idx_sso_audit_logs_event_type (event_type),
+    INDEX idx_sso_audit_logs_category (event_category),
+    INDEX idx_sso_audit_logs_status (status),
+    INDEX idx_sso_audit_logs_created_at (created_at DESC),
+    INDEX idx_sso_audit_logs_ip_address (ip_address)
+);
+
+-- ===============================================
+-- SSO SCHEMA INDEXES
+-- ===============================================
+
+-- SSO Providers indexes
+CREATE INDEX idx_sso_providers_org_id ON sso_providers(organization_id);
+CREATE INDEX idx_sso_providers_type ON sso_providers(type);
+CREATE INDEX idx_sso_providers_enabled ON sso_providers(is_enabled);
+CREATE INDEX idx_sso_providers_default ON sso_providers(is_default);
+CREATE INDEX idx_sso_providers_status ON sso_providers(status);
+
+-- SSO User Identities indexes
+CREATE INDEX idx_sso_identities_user_id ON sso_user_identities(user_id);
+CREATE INDEX idx_sso_identities_provider_id ON sso_user_identities(provider_id);
+CREATE INDEX idx_sso_identities_external_id ON sso_user_identities(external_id);
+CREATE INDEX idx_sso_identities_external_email ON sso_user_identities(external_email);
+CREATE INDEX idx_sso_identities_active ON sso_user_identities(is_active);
+CREATE INDEX idx_sso_identities_last_login ON sso_user_identities(last_login_at DESC);
+
+-- SSO Attribute Mappings indexes
+CREATE INDEX idx_sso_mappings_provider_id ON sso_attribute_mappings(provider_id);
+CREATE INDEX idx_sso_mappings_internal_field ON sso_attribute_mappings(internal_field);
+
+-- ===============================================
+-- DEFAULT SSO CONFIGURATION TEMPLATES
+-- ===============================================
+
+-- Insert default SSO provider templates
+INSERT INTO sso_config_templates (name, provider_type, display_name, description, config_template, required_fields, optional_fields, setup_instructions) VALUES
+('google-oauth', 'google', 'Google OAuth 2.0', 'Sign in with Google account using OAuth 2.0', 
+ '{"clientID": "", "clientSecret": "", "scope": ["openid", "email", "profile"], "callbackURL": "/auth/google/callback"}',
+ '["clientID", "clientSecret"]',
+ '["scope", "callbackURL"]',
+ 'Create a Google OAuth app in Google Cloud Console and configure the Client ID and Secret.'),
+
+('microsoft-oauth', 'microsoft', 'Microsoft OAuth 2.0', 'Sign in with Microsoft account (Azure AD)', 
+ '{"clientID": "", "clientSecret": "", "tenant": "common", "scope": ["openid", "email", "profile"], "callbackURL": "/auth/microsoft/callback"}',
+ '["clientID", "clientSecret"]',
+ '["tenant", "scope", "callbackURL"]',
+ 'Register an app in Azure AD and configure the Application (client) ID and Client secret.'),
+
+('github-oauth', 'github', 'GitHub OAuth 2.0', 'Sign in with GitHub account', 
+ '{"clientID": "", "clientSecret": "", "scope": ["user:email"], "callbackURL": "/auth/github/callback"}',
+ '["clientID", "clientSecret"]',
+ '["scope", "callbackURL"]',
+ 'Create a GitHub OAuth App in your GitHub settings and configure the Client ID and Secret.'),
+
+('okta-saml', 'saml', 'Okta SAML 2.0', 'Enterprise SAML authentication with Okta', 
+ '{"entryPoint": "", "issuer": "", "cert": "", "callbackUrl": "/auth/saml/callback", "signatureAlgorithm": "sha256"}',
+ '["entryPoint", "issuer", "cert"]',
+ '["callbackUrl", "signatureAlgorithm", "identifierFormat"]',
+ 'Configure SAML app in Okta and obtain the SSO URL, Entity ID, and Certificate.'),
+
+('azure-saml', 'saml', 'Azure AD SAML 2.0', 'Enterprise SAML authentication with Azure Active Directory', 
+ '{"entryPoint": "", "issuer": "", "cert": "", "callbackUrl": "/auth/saml/callback"}',
+ '["entryPoint", "issuer", "cert"]',
+ '["callbackUrl", "signatureAlgorithm"]',
+ 'Configure Enterprise Application in Azure AD and obtain the Login URL, Azure AD Identifier, and Certificate.'),
+
+('generic-ldap', 'ldap', 'LDAP Authentication', 'Connect to LDAP directory (Active Directory, OpenLDAP)', 
+ '{"server": {"url": "", "bindDN": "", "bindCredentials": "", "searchBase": "", "searchFilter": "(uid={{username}})"}}',
+ '["server.url", "server.bindDN", "server.bindCredentials", "server.searchBase"]',
+ '["server.searchFilter", "server.searchAttributes", "server.tlsOptions"]',
+ 'Configure LDAP connection details including server URL, bind credentials, and search parameters.');
+
+-- ===============================================
 -- DATABASE SCHEMA COMPLETE
 -- All features implemented:
 -- - Core QR SaaS Platform
@@ -4096,4 +4345,5 @@ CREATE INDEX IF NOT EXISTS idx_gdpr_audit_logs_admin_id ON gdpr_audit_logs(admin
 -- - Content Management System
 -- - ADMIN DASHBOARD SYSTEM
 -- - ADVANCED BUSINESS TOOLS SYSTEM
+-- - ENTERPRISE SSO INTEGRATION SYSTEM
 -- ===============================================

@@ -226,6 +226,39 @@ services:
       - ecommerce_service_node_modules:/app/node_modules
     restart: unless-stopped
 
+  sso-service:
+    build: ./services/sso-service
+    ports:
+      - "3015:3015"
+    environment:
+      - NODE_ENV=development
+      - PORT=3015
+      - SSO_SERVICE_PORT=3015
+      - DATABASE_URL=postgresql://qr_user:qr_password@postgres:5432/qr_saas
+      - REDIS_URL=redis://redis:6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=qr_saas
+      - DB_USER=qr_user
+      - DB_PASSWORD=qr_password
+      - SESSION_SECRET=sso-session-secret-change-in-production
+      - JWT_SECRET=development-jwt-secret-key-change-in-production
+      - CORS_ORIGIN=http://localhost:3000,http://localhost:8080
+      - SAML_CERT_PATH=/app/certs/saml.crt
+      - SAML_KEY_PATH=/app/certs/saml.key
+      - SSO_ENCRYPTION_KEY=sso-encryption-key-32-chars-long-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - qr-network
+    volumes:
+      - ./services/sso-service/src:/app/src
+      - sso_service_node_modules:/app/node_modules
+    restart: unless-stopped
+
   # API Gateway (last to ensure all services are up)
   api-gateway:
     build: ./services/api-gateway
@@ -243,6 +276,7 @@ services:
       - NOTIFICATION_SERVICE_URL=http://notification-service:3005
       - LANDING_PAGE_SERVICE_URL=http://landing-page-service:3010
       - ECOMMERCE_SERVICE_URL=http://ecommerce-service:3011
+      - SSO_SERVICE_URL=http://sso-service:3015
     depends_on:
       redis:
         condition: service_healthy
@@ -259,6 +293,8 @@ services:
       landing-page-service:
         condition: service_started
       ecommerce-service:
+        condition: service_started
+      sso-service:
         condition: service_started
     networks:
       - qr-network
@@ -284,3 +320,4 @@ volumes:
   landing_page_service_node_modules:
   team_service_node_modules:
   ecommerce_service_node_modules:
+  sso_service_node_modules:

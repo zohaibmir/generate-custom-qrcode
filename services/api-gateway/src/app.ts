@@ -138,7 +138,8 @@ class ApiGatewayApplication {
           'landing-page-service': 'Landing page builder with A/B testing and forms',
           'payment-processing': 'Multi-provider payments: Swish (Swedish), Stripe, Klarna, PayPal',
           'admin-dashboard-service': 'Admin authentication, content management, and dashboard APIs',
-          'business-tools-service': 'Custom domains, white labeling, and GDPR compliance management'
+          'business-tools-service': 'Custom domains, white labeling, and GDPR compliance management',
+          'sso-service': 'Enterprise SSO with SAML, OAuth2, OIDC, and LDAP authentication providers'
         },
         database: 'PostgreSQL with complete persistence',
         architecture: 'Clean Architecture with SOLID principles',
@@ -388,6 +389,33 @@ class ApiGatewayApplication {
     
     this.app.all('/api/gdpr/*', async (req, res) => {
       await this.proxyRequest(req, res, 'business-tools-service', '/api/gdpr', '/api/v1/gdpr');
+    });
+
+    // SSO Authentication routes - handle SAML, OAuth, LDAP authentication
+    this.app.all('/api/sso/auth', async (req, res) => {
+      await this.proxyRequest(req, res, 'sso-service', '/api/sso/auth', '/api/v1/auth');
+    });
+    
+    this.app.all('/api/sso/auth/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'sso-service', '/api/sso/auth', '/api/v1/auth');
+    });
+
+    // SSO Provider management routes - configure SAML, OAuth, LDAP providers
+    this.app.all('/api/sso/providers', async (req, res) => {
+      await this.proxyRequest(req, res, 'sso-service', '/api/sso/providers', '/api/v1/sso/providers');
+    });
+    
+    this.app.all('/api/sso/providers/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'sso-service', '/api/sso/providers', '/api/v1/sso/providers');
+    });
+
+    // SSO Identity management routes - link/unlink user identities
+    this.app.all('/api/sso', async (req, res) => {
+      await this.proxyRequest(req, res, 'sso-service', '/api/sso', '/api/v1/sso');
+    });
+    
+    this.app.all('/api/sso/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'sso-service', '/api/sso', '/api/v1/sso');
     });
 
     // Public landing page access (special route)

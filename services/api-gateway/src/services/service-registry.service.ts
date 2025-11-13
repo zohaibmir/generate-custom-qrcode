@@ -83,6 +83,12 @@ export class ServiceRegistry implements IServiceRegistry {
         url: process.env.BUSINESS_TOOLS_SERVICE_URL || 'http://localhost:3014',
         healthPath: '/health',
         timeout: 5000
+      },
+      {
+        name: 'sso-service',
+        url: process.env.SSO_SERVICE_URL || 'http://localhost:3015',
+        healthPath: '/health',
+        timeout: 5000
       }
     ];
 
