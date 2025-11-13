@@ -1,8 +1,47 @@
-# JWT Token Generation Utilities for QR SaaS Platform
+# QR SaaS Platform Testing & Utility Scripts
 
-This directory contains comprehensive JWT token generation utilities for frontend development and API testing with the QR SaaS Platform.
+This directory contains comprehensive testing scripts and utilities for the QR SaaS Platform, including JWT token generation and enterprise security testing.
 
-## 🔐 Available Tools
+## 🔐 Security Testing
+
+### `test-security-features.js`
+
+Comprehensive testing script for all enterprise security middleware components implemented in the API Gateway.
+
+**Quick Start:**
+```bash
+# Run all security tests
+node scripts/test-security-features.js
+
+# Run with verbose output
+node scripts/test-security-features.js --verbose
+
+# Run specific test category
+node scripts/test-security-features.js --test rate --verbose
+```
+
+**Features Tested:**
+- **IP Whitelisting** - Tests IP restrictions and bypass functionality
+- **Rate Limiting** - Tests per-IP and per-user rate limits with subscription tiers
+- **DDoS Protection** - Tests burst request detection and blocking
+- **Bot Detection** - Tests various bot user agents and suspicious behavior
+- **Geolocation Blocking** - Tests country-based access restrictions
+- **Audit Logging** - Tests request/response logging and data redaction
+- **Security Statistics** - Tests admin endpoints for security monitoring
+
+**Test Categories:**
+| Category | Command | Description |
+|----------|---------|-------------|
+| `ip` | `--test ip` | IP Whitelisting and restrictions |
+| `rate` | `--test rate` | Rate limiting enforcement |
+| `ddos` | `--test ddos` | DDoS protection triggers |
+| `bot` | `--test bot` | Bot detection and handling |
+| `geo` | `--test geo` | Geolocation blocking |
+| `audit` | `--test audit` | Audit logging functionality |
+| `stats` | `--test stats` | Security statistics endpoints |
+| `all` | `--test all` | All tests (default) |
+
+## 🎫 JWT Token Generation Utilities
 
 ### 1. **Bash Script** - `generate-jwt-token.sh`
 Simple command-line JWT token generator with interactive features.
@@ -80,46 +119,13 @@ open scripts/jwt-generator.html
 - ✅ Frontend code examples
 - ✅ No server required (client-side only)
 
-## 🎯 Quick Start
-
-### Generate a Token for Development
-```bash
-# Method 1: Bash script (fastest)
-./scripts/generate-jwt-token.sh
-
-# Method 2: npm script
-npm run jwt:generate
-
-# Method 3: Web interface
-npm run jwt:web
-```
-
-### Test API with Generated Token
-```bash
-# Use the generated token in API calls
-curl -H "Authorization: Bearer YOUR_TOKEN_HERE" http://localhost:3000/api/users
-```
-
-### Frontend Integration
-```javascript
-// Store token in localStorage
-localStorage.setItem('authToken', 'YOUR_TOKEN_HERE');
-
-// Use with axios
-axios.defaults.headers.common['Authorization'] = 'Bearer ' + localStorage.getItem('authToken');
-
-// Use with fetch
-const response = await fetch('/api/users', {
-    headers: {
-        'Authorization': 'Bearer ' + localStorage.getItem('authToken')
-    }
-});
-```
-
 ## 📋 Available npm Scripts
 
 | Script | Description | Example |
 |--------|-------------|---------|
+| `npm run test:security` | Run all security tests | `npm run test:security` |
+| `npm run test:security:verbose` | Security tests with detailed output | `npm run test:security:verbose` |
+| `npm run test:security:rate` | Test only rate limiting | `npm run test:security:rate` |
 | `npm run jwt:generate` | Generate new token | `npm run jwt:generate -- --email test@example.com` |
 | `npm run jwt:decode` | Decode existing token | `npm run jwt:decode -- eyJhbGc...` |
 | `npm run jwt:verify` | Verify token signature | `npm run jwt:verify -- eyJhbGc...` |
@@ -127,89 +133,136 @@ const response = await fetch('/api/users', {
 | `npm run jwt:web` | Open web interface | `npm run jwt:web` |
 | `npm run jwt:help` | Show utility help | `npm run jwt:help` |
 
-## 🔧 Configuration Options
+## 🔐 Security Testing Details
 
-### User ID Options
+### Prerequisites for Security Testing:
+
+1. **API Gateway Running**: Ensure the API Gateway service is running on target host/port
+2. **Security Middleware Enabled**: Security features must be enabled in environment configuration
+3. **Node.js**: Requires Node.js for script execution
+
+### Environment Variables for Security Testing:
+
+```env
+# Enable all security features for comprehensive testing
+GATEWAY_IP_WHITELIST_ENABLED=true
+GATEWAY_RATE_LIMIT_ENABLED=true
+GATEWAY_DDOS_ENABLED=true
+GATEWAY_GEO_BLOCKING_ENABLED=true
+GATEWAY_BOT_DETECTION_ENABLED=true
+GATEWAY_AUDIT_ENABLED=true
+
+# Set reasonable thresholds for testing
+GATEWAY_RATE_LIMIT_MAX=100
+GATEWAY_DDOS_THRESHOLD=50
+```
+
+### Example Security Test Output:
+
+```
+🚀 Starting Enterprise Security Features Test Suite...
+Testing against: http://localhost:3001
+
+ℹ️  [2024-01-01T00:00:00.000Z] Testing IP Whitelisting...
+✅ [2024-01-01T00:00:00.100Z] IP-Whitelist-Normal: Local IP allowed access
+✅ [2024-01-01T00:00:00.150Z] IP-Whitelist-Headers: Security headers present
+
+ℹ️  [2024-01-01T00:00:00.200Z] Testing Rate Limiting...
+✅ [2024-01-01T00:00:00.250Z] Rate-Limit-Headers: Rate limit headers present
+✅ [2024-01-01T00:00:00.800Z] Rate-Limit-Enforcement: Rate limit triggered after 45 requests
+
+============================================================
+🔐 ENTERPRISE SECURITY TEST SUMMARY
+============================================================
+⏱️  Duration: 5.23s
+✅ Passed: 18
+❌ Failed: 2
+📊 Total: 20
+
+🎉 ALL SECURITY TESTS PASSED!
+```
+
+## 🎯 Quick Start Guide
+
+### 1. Test Security Features
 ```bash
-# Default demo user
---user-id 550e8400-e29b-41d4-a716-446655440000
+# Run all security tests with verbose output
+node scripts/test-security-features.js --verbose
 
-# Custom user ID
---user-id your-custom-user-id
+# Test specific security feature
+node scripts/test-security-features.js --test rate --verbose
+
+# Test against different environment
+node scripts/test-security-features.js --host staging.api.com --port 3001
 ```
 
-### Email Options
+### 2. Generate JWT Tokens for Testing
 ```bash
-# Default demo email
---email demo@qr-saas.com
+# Generate a token for development
+./scripts/generate-jwt-token.sh
 
-# Custom email
---email user@yourcompany.com
+# Generate tokens for all user types
+npm run jwt:bulk
+
+# Use web interface for visual token management
+npm run jwt:web
 ```
 
-### Subscription Tiers
+### 3. Test API with Generated Token
 ```bash
---subscription free        # Free tier (basic features)
---subscription pro         # Pro tier (advanced features)
---subscription business    # Business tier (team features)
---subscription enterprise  # Enterprise tier (all features)
+# Use the generated token in API calls
+curl -H "Authorization: Bearer YOUR_TOKEN_HERE" http://localhost:3001/api/users
 ```
 
-### Expiration Options
+## 🧪 Integration Testing Workflow
+
+### Complete Security & Authentication Testing:
+
 ```bash
---expires-in 3600      # 1 hour
---expires-in 86400     # 24 hours (default)
---expires-in 604800    # 7 days
---expires-in 2592000   # 30 days
+# 1. Start API Gateway with security enabled
+npm run dev
+
+# 2. Generate test tokens
+npm run jwt:bulk
+
+# 3. Run comprehensive security tests
+node scripts/test-security-features.js --verbose
+
+# 4. Test authentication with different user tiers
+curl -H "Authorization: Bearer FREE_USER_TOKEN" http://localhost:3001/api/qr
+curl -H "Authorization: Bearer PRO_USER_TOKEN" http://localhost:3001/api/qr/advanced
+curl -H "Authorization: Bearer ENTERPRISE_USER_TOKEN" http://localhost:3001/admin/security/stats
 ```
 
-## 🎫 Token Structure
+## 🔍 Troubleshooting
 
-### JWT Header
-```json
-{
-  "alg": "HS256",
-  "typ": "JWT"
-}
-```
+### Security Testing Issues:
 
-### JWT Payload
-```json
-{
-  "sub": "550e8400-e29b-41d4-a716-446655440000",
-  "userId": "550e8400-e29b-41d4-a716-446655440000",
-  "email": "demo@qr-saas.com",
-  "name": "Demo User",
-  "subscriptionTier": "pro",
-  "isEmailVerified": true,
-  "iat": 1762774629,
-  "exp": 1762861029,
-  "iss": "qr-saas-platform",
-  "aud": "qr-saas-frontend"
-}
-```
+| Issue | Solution |
+|-------|----------|
+| Connection refused | Ensure API Gateway is running on specified host:port |
+| All security tests fail | Check if security middleware is properly enabled |
+| Rate limiting not triggered | Lower `GATEWAY_RATE_LIMIT_MAX` threshold |
+| DDoS protection not working | Lower `GATEWAY_DDOS_THRESHOLD` value |
+| Bot detection not working | Verify `GATEWAY_BOT_DETECTION_ENABLED=true` |
 
-## 🔒 Security Configuration
+### JWT Token Issues:
 
-### JWT Secret
-The default JWT secret is:
-```
-your-super-secret-jwt-key-change-in-production
-```
-
-**⚠️ Important:** This is for development only. In production:
-1. Use a strong, randomly generated secret
-2. Store it securely (environment variables, secrets manager)
-3. Rotate it regularly
-
-### Environment Variable
-```bash
-export JWT_SECRET="your-production-secret-here"
-```
+| Issue | Solution |
+|-------|----------|
+| "jq: command not found" | Install jq: `brew install jq` (macOS) or `sudo apt-get install jq` (Linux) |
+| Permission denied on bash script | Run `chmod +x scripts/generate-jwt-token.sh` |
+| Token verification failed | Check JWT secret matches between generation and verification |
 
 ## 📁 Generated Files
 
-### Token Files
+### Security Test Results
+Test results are stored in memory and displayed in console output. For persistent storage, pipe output to file:
+```bash
+node scripts/test-security-features.js --verbose > security-test-results.log 2>&1
+```
+
+### JWT Token Files
 Generated tokens are saved in `scripts/generated-tokens/`:
 ```
 jwt-token-20231110-143022.txt       # Single token file
@@ -217,199 +270,57 @@ bulk-tokens-1699622222123.json      # Bulk tokens JSON
 token-1699622222123.json            # Generated token data
 ```
 
-### File Format Example
-```txt
-TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-USER_ID=550e8400-e29b-41d4-a716-446655440000
-EMAIL=demo@qr-saas.com
-NAME=Demo User
-SUBSCRIPTION=pro
-EXPIRES_AT=Mon Nov 11 11:37:46 PST 2025
-```
+## 🚀 CI/CD Integration
 
-## 🚀 Frontend Integration Examples
-
-### React Example
-```jsx
-// hooks/useAuth.js
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-export const useAuth = () => {
-  const [token, setToken] = useState(localStorage.getItem('authToken'));
-  
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-  }, [token]);
-
-  const setAuthToken = (newToken) => {
-    localStorage.setItem('authToken', newToken);
-    setToken(newToken);
-  };
-
-  return { token, setAuthToken };
-};
-```
-
-### Vue.js Example
-```javascript
-// plugins/auth.js
-import axios from 'axios';
-
-export default {
-  install(app) {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-
-    app.config.globalProperties.$setToken = (token) => {
-      localStorage.setItem('authToken', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    };
-  }
-};
-```
-
-### Angular Example
-```typescript
-// services/auth.service.ts
-import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class AuthService {
-  private token = localStorage.getItem('authToken');
-
-  constructor(private http: HttpClient) {}
-
-  setToken(token: string) {
-    localStorage.setItem('authToken', token);
-    this.token = token;
-  }
-
-  getHeaders() {
-    return new HttpHeaders({
-      'Authorization': `Bearer ${this.token}`
-    });
-  }
-
-  apiCall(url: string) {
-    return this.http.get(url, { headers: this.getHeaders() });
+### Add to package.json:
+```json
+{
+  "scripts": {
+    "test:security": "node scripts/test-security-features.js",
+    "test:security:verbose": "node scripts/test-security-features.js --verbose",
+    "test:security:ci": "node scripts/test-security-features.js --test all"
   }
 }
 ```
 
-## 🧪 Testing Scenarios
-
-### Test User Profiles
-The bulk generator creates these test users:
-
-1. **Admin User** (Enterprise)
-   - Email: `admin@qr-saas.com`
-   - Features: All platform features
-   - Use case: Admin panel testing
-
-2. **Pro User** (Pro)
-   - Email: `pro@qr-saas.com`
-   - Features: Advanced QR customization
-   - Use case: Pro feature testing
-
-3. **Free User** (Free)
-   - Email: `free@qr-saas.com`
-   - Features: Basic QR generation
-   - Use case: Free tier limitation testing
-
-### API Testing Workflow
-```bash
-# 1. Generate tokens for all user types
-npm run jwt:bulk
-
-# 2. Test free tier limitations
-curl -H "Authorization: Bearer FREE_USER_TOKEN" \
-     http://localhost:3000/api/qr \
-     -d '{"data":"test","customization":{"logo":"should-fail"}}'
-
-# 3. Test pro features
-curl -H "Authorization: Bearer PRO_USER_TOKEN" \
-     http://localhost:3000/api/qr \
-     -d '{"data":"test","customization":{"logo":"should-work"}}'
-
-# 4. Test enterprise features
-curl -H "Authorization: Bearer ENTERPRISE_USER_TOKEN" \
-     http://localhost:3000/api/analytics/advanced
-```
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-**1. "jq: command not found"**
-```bash
-# macOS
-brew install jq
-
-# Ubuntu/Debian
-sudo apt-get install jq
-
-# CentOS/RHEL
-sudo yum install jq
-```
-
-**2. "node: command not found"**
-```bash
-# Install Node.js from https://nodejs.org/
-# Or use nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-nvm install node
-```
-
-**3. Permission denied on bash script**
-```bash
-chmod +x scripts/generate-jwt-token.sh
-```
-
-**4. Token verification failed**
-- Check JWT secret matches between generation and verification
-- Ensure token hasn't expired
-- Verify token format (should have 3 parts separated by dots)
-
-### Debug Mode
-```bash
-# Enable debug logging for Node.js utility
-DEBUG=jwt npm run jwt:generate
-
-# Verbose output for bash script
-JWT_DEBUG=1 ./scripts/generate-jwt-token.sh
+### GitHub Actions Example:
+```yaml
+name: Security Tests
+on: [push, pull_request]
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - run: npm install
+      - run: npm run dev & # Start API Gateway
+      - run: sleep 10 # Wait for startup
+      - run: npm run test:security:ci
 ```
 
 ## 📚 Additional Resources
+
+### Security Documentation
+- [Enterprise Security Implementation Guide](../ENTERPRISE-SECURITY-IMPLEMENTATION.md)
+- [API Gateway Security Configuration](../services/api-gateway/src/config/security.config.ts)
 
 ### JWT Standards
 - [RFC 7519 - JSON Web Token (JWT)](https://tools.ietf.org/html/rfc7519)
 - [JWT.io - JWT Debugger](https://jwt.io/)
 
 ### QR SaaS Platform API
-- API Documentation: `http://localhost:3000/api-docs`
-- Health Check: `http://localhost:3000/health`
+- API Documentation: `http://localhost:3001/api-docs`
+- Health Check: `http://localhost:3001/health`
 - Postman Collection: `postman-collection.json`
-
-### Security Best Practices
-- [OWASP JWT Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html)
-- [Auth0 JWT Best Practices](https://auth0.com/blog/a-look-at-the-latest-draft-for-jwt-bcp/)
 
 ---
 
-## 🎉 Ready to Authenticate!
+## 🎉 Ready for Comprehensive Testing!
 
-Your JWT utilities are now ready for frontend development and API testing with the QR SaaS Platform. Choose the method that works best for your workflow:
+Your testing utilities are now ready for:
+- **Security Feature Validation** - Comprehensive enterprise security testing
+- **Authentication Testing** - JWT token generation and validation
+- **API Integration Testing** - Complete workflow validation
 
-- **Quick testing**: Use the bash script
-- **Advanced scenarios**: Use the Node.js utility  
-- **Visual interface**: Use the web interface
-
-Happy coding! 🚀
+Choose the appropriate testing method for your needs and ensure your QR SaaS platform is secure and robust! 🔐🚀
