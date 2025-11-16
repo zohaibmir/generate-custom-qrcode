@@ -225,6 +225,14 @@ class CleanApiGatewayApplication {
       await this.proxyRequest(req, res, 'user-service', '/api/users', '/users');
     });
 
+    // Subscription routes
+    this.app.all('/api/subscription', async (req, res) => {
+      await this.proxyRequest(req, res, 'user-service', '/api/subscription', '/subscription');
+    });
+    this.app.all('/api/subscription/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'user-service', '/api/subscription', '/subscription');
+    });
+
     // QR routes
     this.app.all('/api/qr', async (req, res) => {
       await this.proxyRequest(req, res, 'qr-service', '/api/qr', '/qr');

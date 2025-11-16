@@ -4,6 +4,8 @@ import { bulkQRSchemas } from '../docs/bulk-qr-routes';
 import { paymentSchemas } from '../docs/payment-routes';
 import { ecommerceSchemas } from '../docs/ecommerce-swagger';
 import { businessToolsSchemas } from '../docs/business-tools-routes';
+import { cleanArchAuthSchemas } from '../docs/clean-architecture-auth';
+import { subscriptionSchemas } from '../docs/clean-architecture-subscription';
 
 const swaggerDefinition: SwaggerDefinition = {
   openapi: '3.0.0',
@@ -54,8 +56,13 @@ This API Gateway routes requests to the following microservices:
 - **JSONB Storage**: Flexible QR content and configuration storage
 - **Foreign Key Constraints**: Data integrity across services
 
-## 🔒 Authentication
-JWT-based authentication system (ready for implementation).
+## 🔒 Authentication & Clean Architecture
+JWT-based authentication system with Clean Architecture implementation:
+- **✅ SOLID Principles**: Proper separation of concerns with routes, controllers, and services
+- **✅ Dependency Inversion**: Clean abstractions for database operations and business logic
+- **✅ JWT Security**: Proper token generation with API Gateway issuer compatibility
+- **✅ Subscription Management**: Tier-based feature access with upgrade/downgrade capabilities
+- **✅ Modular Routes**: Separated authentication, user management, and subscription endpoints
 
 ## 📊 Features
 - ✅ Complete CRUD operations for all resources
@@ -63,7 +70,9 @@ JWT-based authentication system (ready for implementation).
 - ✅ File upload with metadata tracking
 - ✅ Email/SMS notifications with database storage
 - ✅ Comprehensive analytics and scan tracking
-- ✅ Clean Architecture with SOLID principles
+- ✅ **Clean Architecture with SOLID principles**
+- ✅ **JWT Authentication with proper API Gateway integration**
+- ✅ **Subscription Management System** - Multi-tier (free, starter, professional, enterprise)
 - 🚀 **NEW: Advanced QR Features** - Dynamic content resolution engine
 
 ## 🧪 Testing
@@ -667,6 +676,8 @@ Import the included Postman collection for comprehensive API testing.
       ...paymentSchemas,
       ...ecommerceSchemas,
       ...businessToolsSchemas,
+      ...cleanArchAuthSchemas,
+      ...subscriptionSchemas,
       // Advanced QR Features Schemas
       QRContentRule: {
         type: 'object',
