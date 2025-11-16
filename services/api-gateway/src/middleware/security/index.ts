@@ -1,18 +1,18 @@
 /**
  * Enterprise Security Middleware Suite for API Gateway
  * 
- * This module provides comprehensive security middleware for the API Gateway,
- * including IP whitelisting, audit logging, rate limiting, DDoS protection,
- * geolocation blocking, and bot detection.
+ * This module provides comprehensive security middleware for the API Gateway.
+ * Currently simplified for testing the new authentication system.
  */
 
-export { IPWhitelistMiddleware } from '../ip-whitelist.middleware';
-export { AuditLoggerMiddleware } from '../audit-logger.middleware';
-export { RateLimitingMiddleware } from '../rate-limiting.middleware';
-export { SecurityMiddleware } from '../security.middleware';
-
-// Security configuration
-export { securityConfig } from '../../config/security.config';
+// Simplified security configuration for now
+export const securityConfig = {
+  ipWhitelisting: {
+    enabled: false,
+    allowedIPs: [],
+    bypassRoutes: []
+  }
+};
 
 /**
  * Security Middleware Factory
@@ -20,14 +20,18 @@ export { securityConfig } from '../../config/security.config';
  */
 export class SecurityMiddlewareFactory {
   /**
-   * Create a complete security middleware stack
+   * Create a simplified security middleware stack for testing
    */
   public static createSecurityStack(logger: any) {
     return {
-      ipWhitelist: new IPWhitelistMiddleware(logger),
-      auditLogger: new AuditLoggerMiddleware(logger),
-      rateLimiting: new RateLimitingMiddleware(logger),
-      security: new SecurityMiddleware(logger)
+      // Simplified for now - can add complex middleware later
+      basic: (req: any, res: any, next: any) => {
+        // Basic security headers
+        res.header('X-Content-Type-Options', 'nosniff');
+        res.header('X-Frame-Options', 'DENY');
+        res.header('X-XSS-Protection', '1; mode=block');
+        next();
+      }
     };
   }
 
@@ -35,12 +39,7 @@ export class SecurityMiddlewareFactory {
    * Get security middleware in recommended order
    */
   public static getSecurityOrder() {
-    return [
-      'ipWhitelist',    // 1. Check IP whitelist first (fastest bypass)
-      'security',       // 2. DDoS, geo-blocking, bot detection
-      'rateLimiting',   // 3. Rate limiting
-      'auditLogger'     // 4. Audit logging (last to capture all data)
-    ];
+    return ['basic'];
   }
 
   /**
@@ -53,9 +52,6 @@ export class SecurityMiddlewareFactory {
         allowedIPs: securityConfig.ipWhitelisting.allowedIPs.length,
         bypassRoutes: securityConfig.ipWhitelisting.bypassRoutes.length
       },
-      auditLogger: middlewareStack.auditLogger?.getAuditStats() || null,
-      rateLimiting: middlewareStack.rateLimiting?.getRateLimitStats() || null,
-      security: middlewareStack.security?.getSecurityStats() || null,
       timestamp: new Date().toISOString()
     };
   }

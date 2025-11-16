@@ -41,21 +41,27 @@ export class AuthUser {
   }
 
   // Factory method for creating from service headers
-  public static fromServiceHeaders(headers: Record<string, string>): AuthUser {
-    if (!headers['x-auth-user-id'] || !headers['x-auth-email']) {
-      throw new Error('Invalid auth headers: missing required fields');
-    }
-
+  public static fromServiceHeaders(data: {
+    userId: string;
+    email: string;
+    username: string;
+    subscriptionTier: SubscriptionTier;
+    isEmailVerified: boolean;
+    tokenIssuedAt?: number;
+    tokenExpiresAt?: number;
+    organizationId?: string;
+    permissions?: string[];
+  }): AuthUser {
     return new AuthUser(
-      headers['x-auth-user-id'],
-      headers['x-auth-email'],
-      headers['x-auth-username'],
-      (headers['x-auth-tier'] as SubscriptionTier) || 'free',
-      headers['x-auth-verified'] === 'true',
-      parseInt(headers['x-auth-iat']) || 0,
-      parseInt(headers['x-auth-exp']) || 0,
-      headers['x-auth-org-id'],
-      headers['x-auth-permissions'] ? JSON.parse(headers['x-auth-permissions']) : []
+      data.userId,
+      data.email,
+      data.username,
+      data.subscriptionTier,
+      data.isEmailVerified,
+      data.tokenIssuedAt || 0,
+      data.tokenExpiresAt || 0,
+      data.organizationId,
+      data.permissions || []
     );
   }
 

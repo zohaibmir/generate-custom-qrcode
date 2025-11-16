@@ -169,15 +169,7 @@ export interface ISubscriptionService {
   getSubscriptionUsage(userId: string): Promise<ServiceResponse<SubscriptionUsage>>;
 }
 
-export interface IAuthService {
-  login(credentials: LoginRequest): Promise<ServiceResponse<AuthUser>>;
-  register(userData: CreateUserRequest): Promise<ServiceResponse<AuthUser>>;
-  refreshToken(refreshToken: string): Promise<ServiceResponse<AuthTokens>>;
-  logout(userId: string, refreshToken: string): Promise<ServiceResponse<void>>;
-  forgotPassword(email: string): Promise<ServiceResponse<void>>;
-  resetPassword(token: string, newPassword: string): Promise<ServiceResponse<void>>;
-  verifyEmailToken(token: string): Promise<ServiceResponse<User>>;
-}
+
 
 // Repository interfaces (Data access layer)
 export interface IUserRepository {
@@ -193,20 +185,7 @@ export interface IUserRepository {
   findByPasswordResetToken(token: string): Promise<User | null>;
 }
 
-export interface ITokenRepository {
-  // Generic CRUD methods for Auth Service
-  create(tokenData: { userId: string; token: string; type: string; expiresAt: Date }): Promise<any>;
-  findByToken(token: string): Promise<any>;
-  delete(tokenId: string): Promise<void>;
-  
-  // Specific methods for legacy compatibility
-  saveRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void>;
-  validateRefreshToken(token: string): Promise<{ userId: string; isValid: boolean }>;
-  revokeRefreshToken(token: string): Promise<void>;
-  revokeAllUserTokens(userId: string): Promise<void>;
-  saveEmailVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void>;
-  savePasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
-}
+
 
 export interface ISubscriptionRepository {
   // Subscription Plans
@@ -239,14 +218,7 @@ export interface IPasswordHasher {
   compare(password: string, hash: string): Promise<boolean>;
 }
 
-export interface ITokenGenerator {
-  generateAccessToken(user: User): string;
-  generateRefreshToken(): string;
-  generateEmailVerificationToken(): string;
-  generatePasswordResetToken(): string;
-  generateResetToken(): string; // Alias for compatibility
-  verifyAccessToken(token: string): { userId: string; isValid: boolean };
-}
+
 
 export interface IEmailService {
   sendVerificationEmail(user: User, token: string): Promise<void>;

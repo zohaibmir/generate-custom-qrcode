@@ -39,6 +39,11 @@ export { AuthorizationService } from './services/authorization.service';
 
 // Middleware
 export { AuthenticationMiddleware } from './middleware/authentication.middleware';
+export { 
+  ServiceIntegrationMiddleware,
+  ServiceIntegrationConfig,
+  ServiceAuthMiddleware 
+} from './middleware/service-integration.middleware';
 
 // Import types and classes for factory
 import { AuthUser } from './entities/auth-user.entity';
@@ -103,21 +108,44 @@ export class AuthenticationModuleFactory {
 export class ServiceAuthExtractor {
   public static extractAuthUser(headers: Record<string, string | string[] | undefined>): AuthUser | null {
     try {
-      const stringHeaders: Record<string, string> = {};
-      
-      // Convert headers to string format
-      Object.entries(headers).forEach(([key, value]) => {
-        if (typeof value === 'string') {
-          stringHeaders[key] = value;
-        } else if (Array.isArray(value)) {
-          stringHeaders[key] = value[0] || '';
-        }
-      });
+      const userId = this.getHeaderValue(headers, 'x-auth-user-id');
+      const email = this.getHeaderValue(headers, 'x-auth-email');
+      const username = this.getHeaderValue(headers, 'x-auth-username');
+      const subscriptionTier = this.getHeaderValue(headers, 'x-auth-subscription');
+      const isEmailVerified = this.getHeaderValue(headers, 'x-auth-email-verified') === 'true';
+      const organizationId = this.getHeaderValue(headers, 'x-auth-organization-id');
+      const permissionsHeader = this.getHeaderValue(headers, 'x-auth-permissions');
+      const tokenIssuedAtHeader = this.getHeaderValue(headers, 'x-auth-token-issued-at');
+      const tokenExpiresAtHeader = this.getHeaderValue(headers, 'x-auth-token-expires-at');
 
-      return AuthUser.fromServiceHeaders(stringHeaders);
+      if (!userId || !email || !username) {
+        return null; // Missing required headers
+      }
+
+      return AuthUser.fromServiceHeaders({
+        userId,
+        email,
+        username,
+        subscriptionTier: (subscriptionTier as any) || 'free',
+        isEmailVerified,
+        organizationId,
+        permissions: permissionsHeader ? permissionsHeader.split(',').map(p => p.trim()) : [],
+        tokenIssuedAt: tokenIssuedAtHeader ? parseInt(tokenIssuedAtHeader, 10) : undefined,
+        tokenExpiresAt: tokenExpiresAtHeader ? parseInt(tokenExpiresAtHeader, 10) : undefined
+      });
     } catch (error) {
       return null;
     }
+  }
+
+  private static getHeaderValue(headers: Record<string, string | string[] | undefined>, key: string): string | undefined {
+    const value = headers[key];
+    if (typeof value === 'string') {
+      return value;
+    } else if (Array.isArray(value)) {
+      return value[0];
+    }
+    return undefined;
   }
 
   public static requireAuthUser(headers: Record<string, string | string[] | undefined>): AuthUser {

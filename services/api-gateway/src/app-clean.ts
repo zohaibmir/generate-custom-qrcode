@@ -410,7 +410,7 @@ class CleanApiGatewayApplication {
   private async handleRedirect(req: express.Request, res: express.Response, targetUrl: string): Promise<void> {
     try {
       const response = await fetch(targetUrl);
-      const data = await response.json();
+      const data = await response.json() as any;
       
       if (data.success && data.redirectTo) {
         // For production, perform actual redirect
@@ -419,8 +419,7 @@ class CleanApiGatewayApplication {
         } else {
           // For development, return redirect info
           res.status(200).json({
-            success: true,
-            message: 'Redirect target found',
+            message: 'Redirect detected',
             redirectTo: data.redirectTo,
             scans: data.scans
           });
@@ -429,11 +428,8 @@ class CleanApiGatewayApplication {
         res.status(response.status).json(data);
       }
     } catch (error) {
-      this.logger.error('Redirect failed', { targetUrl, error });
-      res.status(500).json({ 
-        success: false, 
-        error: { code: 'REDIRECT_ERROR', message: 'Redirect service unavailable' }
-      });
+      this.logger.error('Redirect handling error:', error);
+      res.status(500).json({ error: 'Internal server error during redirect' });
     }
   }
 

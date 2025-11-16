@@ -30,7 +30,7 @@ export class JwtTokenService implements IJwtTokenService {
       }
 
       // Remove Bearer prefix if present
-      const cleanToken = token.replace(/^Bearer\s+/i, '');
+      const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
 
       if (!cleanToken) {
         throw this.createAuthError(AuthErrorCode.TOKEN_MISSING, 'Token is empty');

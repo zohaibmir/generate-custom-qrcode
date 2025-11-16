@@ -1,2 +1,2 @@
 // Clean Architecture API Gateway Entry Point
-import './app';
+import './app-clean';

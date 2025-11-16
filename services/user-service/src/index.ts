@@ -4,6 +4,9 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
+// Import service integration middleware
+import { ServiceIntegrationMiddleware } from '@qr-saas/shared';
+
 // Import clean architecture components
 import { 
   ServiceResponse, 
@@ -13,17 +16,14 @@ import {
   ISubscriptionService,
   IHealthChecker,
   IDependencyContainer,
-  IAuthService,
   AppError
 } from './interfaces';
 import { Logger } from './services/logger.service';
 import { DependencyContainer } from './services/dependency-container.service';
 import { DatabaseConfig } from './config/database.config';
 import { UserRepository } from './repositories/user.repository';
-import { TokenRepository } from './repositories/token.repository';
 import { UserService } from './services/user.service';
 import { PasswordHasher } from './utils/password-hasher';
-import { TokenGenerator } from './utils/token-generator';
 import { HealthChecker } from './services/health-checker.service';
 
 dotenv.config({ path: '../../.env' });
@@ -55,15 +55,11 @@ class UserServiceApplication {
       
       // Register utilities
       const passwordHasher = new PasswordHasher();
-      const tokenGenerator = new TokenGenerator();
       this.container.register('passwordHasher', passwordHasher);
-      this.container.register('tokenGenerator', tokenGenerator);
       
       // Register repositories
       const userRepository = new UserRepository(database, this.logger);
-      const tokenRepository = new TokenRepository(database, this.logger);
       this.container.register('userRepository', userRepository);
-      this.container.register('tokenRepository', tokenRepository);
       
       // Register subscription repository
       const { SubscriptionRepository } = require('./repositories/subscription.repository');
@@ -74,11 +70,6 @@ class UserServiceApplication {
       const { SubscriptionService } = require('./services/subscription.service');
       const subscriptionService = new SubscriptionService(subscriptionRepository, userRepository, this.logger);
       this.container.register('subscriptionService', subscriptionService);
-      
-      // Register auth service
-      const { AuthService } = require('./services/auth.service');
-      const authService = new AuthService(userRepository, tokenRepository, passwordHasher, tokenGenerator, this.logger);
-      this.container.register('authService', authService);
       
       // Register user service with subscription service dependency
       const userService = new UserService(userRepository, passwordHasher, this.logger, subscriptionService);
@@ -148,6 +139,13 @@ class UserServiceApplication {
       
       next();
     });
+
+    // Service integration middleware - extract auth context from API Gateway
+    const serviceAuthMiddleware = ServiceIntegrationMiddleware.createInternal({
+      requireAuthentication: false, // User service handles both auth and non-auth routes
+      allowDirectAccess: true       // Allow direct access for internal operations
+    });
+    this.app.use(serviceAuthMiddleware);
   }
 
   private setupRoutes(): void {
@@ -178,9 +176,6 @@ class UserServiceApplication {
       }
     });
 
-    // Add Auth routes
-    this.setupAuthRoutes();
-
     // User routes
     this.setupUserRoutes(userService);
 
@@ -207,256 +202,89 @@ class UserServiceApplication {
     });
   }
 
-  private setupAuthRoutes(): void {
-    const authService = this.container.resolve<IAuthService>('authService');
-    
-    // Login route
-    this.app.post('/auth/login', async (req, res) => {
-      try {
-        const { email, password } = req.body;
-        
-        if (!email || !password) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'MISSING_CREDENTIALS',
-              message: 'Email and password are required',
-              statusCode: 400
-            }
-          });
-        }
-
-        const result = await authService.login({ email, password });
-        
-        if (result.success) {
-          res.status(200).json(result);
-        } else {
-          res.status(result.error?.statusCode || 401).json(result);
-        }
-      } catch (error) {
-        this.logger.error('Login route error', { error });
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'LOGIN_FAILED',
-            message: 'Authentication failed',
-            statusCode: 500
-          }
-        });
-      }
-    });
-
-    // Register route
-    this.app.post('/auth/register', async (req, res) => {
-      try {
-        const { email, username, password, fullName } = req.body;
-        
-        if (!email || !password) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'MISSING_FIELDS',
-              message: 'Email and password are required',
-              statusCode: 400
-            }
-          });
-        }
-
-        // Auto-generate username if not provided
-        const generatedUsername = username || this.generateUsernameFromEmail(email);
-
-        const result = await authService.register({
-          email,
-          username: generatedUsername,
-          password,
-          fullName,
-          subscription: 'free' // Default subscription
-        });
-        
-        if (result.success) {
-          res.status(201).json(result);
-        } else {
-          res.status(result.error?.statusCode || 400).json(result);
-        }
-      } catch (error) {
-        this.logger.error('Register route error', { error });
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'REGISTRATION_FAILED',
-            message: 'Registration failed',
-            statusCode: 500
-          }
-        });
-      }
-    });
-
-    // Refresh token route
-    this.app.post('/auth/refresh', async (req, res) => {
-      try {
-        const { refreshToken } = req.body;
-        
-        if (!refreshToken) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'MISSING_REFRESH_TOKEN',
-              message: 'Refresh token is required',
-              statusCode: 400
-            }
-          });
-        }
-
-        const result = await authService.refreshToken(refreshToken);
-        
-        if (result.success) {
-          res.status(200).json(result);
-        } else {
-          res.status(result.error?.statusCode || 401).json(result);
-        }
-      } catch (error) {
-        this.logger.error('Refresh token route error', { error });
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'TOKEN_REFRESH_FAILED',
-            message: 'Token refresh failed',
-            statusCode: 500
-          }
-        });
-      }
-    });
-
-    // Logout route
-    this.app.post('/auth/logout', async (req, res) => {
-      try {
-        const { userId, refreshToken } = req.body;
-        
-        if (!userId || !refreshToken) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'MISSING_FIELDS',
-              message: 'User ID and refresh token are required',
-              statusCode: 400
-            }
-          });
-        }
-
-        const result = await authService.logout(userId, refreshToken);
-        
-        if (result.success) {
-          res.status(200).json(result);
-        } else {
-          res.status(result.error?.statusCode || 400).json(result);
-        }
-      } catch (error) {
-        this.logger.error('Logout route error', { error });
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'LOGOUT_FAILED',
-            message: 'Logout failed',
-            statusCode: 500
-          }
-        });
-      }
-    });
-
-    // Forgot password route
-    this.app.post('/auth/forgot-password', async (req, res) => {
-      try {
-        const { email } = req.body;
-        
-        if (!email) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'MISSING_EMAIL',
-              message: 'Email is required',
-              statusCode: 400
-            }
-          });
-        }
-
-        const result = await authService.forgotPassword(email);
-        
-        if (result.success) {
-          res.status(200).json({
-            success: true,
-            message: 'If an account with this email exists, a password reset link has been sent'
-          });
-        } else {
-          res.status(result.error?.statusCode || 400).json(result);
-        }
-      } catch (error) {
-        this.logger.error('Forgot password route error', { error });
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'FORGOT_PASSWORD_FAILED',
-            message: 'Password reset request failed',
-            statusCode: 500
-          }
-        });
-      }
-    });
-
-    // Reset password route
-    this.app.post('/auth/reset-password', async (req, res) => {
-      try {
-        const { token, newPassword } = req.body;
-        
-        if (!token || !newPassword) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'MISSING_FIELDS',
-              message: 'Reset token and new password are required',
-              statusCode: 400
-            }
-          });
-        }
-
-        if (newPassword.length < 8) {
-          return res.status(400).json({
-            success: false,
-            error: {
-              code: 'WEAK_PASSWORD',
-              message: 'Password must be at least 8 characters long',
-              statusCode: 400
-            }
-          });
-        }
-
-        const result = await authService.resetPassword(token, newPassword);
-        
-        if (result.success) {
-          res.status(200).json({
-            success: true,
-            message: 'Password has been reset successfully'
-          });
-        } else {
-          res.status(result.error?.statusCode || 400).json(result);
-        }
-      } catch (error) {
-        this.logger.error('Reset password route error', { error });
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'RESET_PASSWORD_FAILED',
-            message: 'Password reset failed',
-            statusCode: 500
-          }
-        });
-      }
-    });
-
-    this.logger.info('Authentication routes setup complete');
-  }
-
   private setupUserRoutes(userService: IUserService): void {
-    // Create User
+    // User Profile Route - uses authentication context from gateway
+    this.app.get('/users/profile', async (req: any, res) => {
+      try {
+        // Get authenticated user from service integration middleware
+        const authUser = req.auth;
+        
+        if (!authUser) {
+          return res.status(401).json({
+            success: false,
+            error: {
+              code: 'AUTHENTICATION_REQUIRED',
+              message: 'User authentication required to access profile',
+              statusCode: 401
+            }
+          });
+        }
+
+        // Fetch full user profile using the authenticated user ID
+        const result = await userService.getUserById(authUser.userId);
+        
+        if (result.success) {
+          // Add authentication context to response
+          const profileData = {
+            ...result.data,
+            authContext: {
+              subscription: authUser.subscriptionTier,
+              permissions: authUser.permissions,
+              isEmailVerified: authUser.isEmailVerified,
+              organizationId: authUser.organizationId
+            }
+          };
+          
+          res.status(200).json({
+            success: true,
+            data: profileData,
+            message: 'Profile retrieved successfully'
+          });
+        } else {
+          res.status(result.error?.statusCode || 500).json(result);
+        }
+        
+      } catch (error) {
+        this.handleRouteError(error, res, 'PROFILE_FETCH_FAILED');
+      }
+    });
+
+    // Update User Profile Route - uses authentication context
+    this.app.put('/users/profile', async (req: any, res) => {
+      try {
+        const authUser = req.auth;
+        
+        if (!authUser) {
+          return res.status(401).json({
+            success: false,
+            error: {
+              code: 'AUTHENTICATION_REQUIRED',
+              message: 'User authentication required to update profile',
+              statusCode: 401
+            }
+          });
+        }
+
+        // Only allow users to update their own profile
+        const result = await userService.updateUser(authUser.userId, req.body);
+        
+        if (result.success) {
+          this.logger.info('Profile updated', {
+            userId: authUser.userId,
+            email: authUser.email,
+            requestId: req.serviceContext?.requestId
+          });
+        }
+        
+        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
+        res.status(statusCode).json(result);
+        
+      } catch (error) {
+        this.handleRouteError(error, res, 'PROFILE_UPDATE_FAILED');
+      }
+    });
+
+    // Create User (admin only or registration)
     this.app.post('/users', async (req, res) => {
       try {
         const result = await userService.createUser(req.body);
@@ -784,15 +612,7 @@ class UserServiceApplication {
   }
 }
 
-private generateUsernameFromEmail(email: string): string {
-  // Extract the local part of the email (before @)
-  const localPart = email.split('@')[0];
-  // Remove any non-alphanumeric characters and convert to lowercase
-  const cleanUsername = localPart.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  // Add a random suffix to ensure uniqueness
-  const randomSuffix = Math.random().toString(36).substr(2, 4);
-  return `${cleanUsername}${randomSuffix}`;
-}  public async shutdown(): Promise<void> {
+  public async shutdown(): Promise<void> {
     this.logger.info('Shutting down User Service gracefully...');
     
     try {

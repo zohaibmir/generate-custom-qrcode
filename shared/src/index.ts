@@ -14,6 +14,3 @@ export * from './services/qr-analytics-integration.service';
 
 // Export the new authentication module
 export * from './auth';
-
-// Export service middleware separately to avoid circular dependencies
-export * from './middleware/service-auth.middleware';
