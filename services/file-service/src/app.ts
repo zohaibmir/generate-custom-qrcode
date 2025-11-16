@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 declare global {
   namespace Express {
     interface Request {
-      file?: multer.File;
+      file?: Express.Multer.File;
     }
   }
 }
@@ -39,7 +39,7 @@ class FileServiceApp {
   private logger: ILogger;
   private fileService!: IFileService;
   private healthChecker!: IHealthChecker;
-  private upload: multer.Multer;
+  private upload!: multer.Multer;
 
   constructor() {
     this.app = express();

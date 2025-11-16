@@ -13,6 +13,7 @@ import {
   IFileValidator,
   ILogger,
   ServiceResponse,
+  FileServiceResponse,
   ValidationError,
   NotFoundError,
   StorageError,
@@ -29,7 +30,7 @@ export class FileService implements IFileService {
     private logger: ILogger
   ) {}
 
-  async uploadFile(request: FileUploadRequest): Promise<ServiceResponse<FileInfo>> {
+  async uploadFile(request: FileUploadRequest): Promise<FileServiceResponse<FileInfo>> {
     try {
       this.logger.info('Upload file requested', { userId: request.userId });
 
@@ -120,7 +121,7 @@ export class FileService implements IFileService {
     }
   }
 
-  async getFile(request: GetFileRequest): Promise<ServiceResponse<FileInfo>> {
+  async getFile(request: GetFileRequest): Promise<FileServiceResponse<FileInfo>> {
     try {
       if (!request.fileId) {
         throw new ValidationError('File ID is required');
@@ -219,7 +220,7 @@ export class FileService implements IFileService {
     }
   }
 
-  async downloadFile(fileId: string, userId?: string): Promise<ServiceResponse<{ buffer: Buffer; mimeType: string; filename: string; size: number; stream: any }>> {
+  async downloadFile(fileId: string, userId?: string): Promise<FileServiceResponse<{ buffer: Buffer; mimeType: string; filename: string; size: number; stream: any }>> {
     try {
       if (!fileId) {
         throw new ValidationError('File ID is required');
@@ -339,7 +340,7 @@ export class FileService implements IFileService {
     }
   }
 
-  async listUserFiles(userId: string, page: number = 1, limit: number = 10): Promise<ServiceResponse<{
+  async listUserFiles(userId: string, page: number = 1, limit: number = 10): Promise<FileServiceResponse<{
     files: FileInfo[];
     pagination: {
       total: number;
@@ -395,7 +396,7 @@ export class FileService implements IFileService {
     }
   }
 
-  async generatePresignedUrl(fileId: string, userId: string, operation: string = 'download', expiresIn: number = 3600): Promise<ServiceResponse<{ url: string; expiresAt: string }>> {
+  async generatePresignedUrl(fileId: string, userId: string, operation: string = 'download', expiresIn: number = 3600): Promise<FileServiceResponse<{ url: string; expiresAt: string }>> {
     try {
       this.logger.info('Generate presigned URL requested', { fileId, userId, operation });
 
@@ -436,7 +437,7 @@ export class FileService implements IFileService {
     }
   }
 
-  async listFiles(request: ListFilesRequest): Promise<ServiceResponse<{
+  async listFiles(request: ListFilesRequest): Promise<FileServiceResponse<{
     files: FileInfo[];
     pagination: {
       total: number;
@@ -450,8 +451,8 @@ export class FileService implements IFileService {
         throw new ValidationError('User ID is required');
       }
 
-      const page = request.pagination?.page || 1;
-      const limit = Math.min(request.pagination?.limit || 20, 100);
+      const page = request.page || 1;
+      const limit = Math.min(request.limit || 20, 100);
       const offset = (page - 1) * limit;
 
       const result = await this.fileRepository.findByUserId(request.userId, {
@@ -459,8 +460,8 @@ export class FileService implements IFileService {
         mimeTypes: request.mimeTypes,
         limit,
         offset,
-        sortBy: request.pagination?.sortBy || 'created_at',
-        sortOrder: request.pagination?.sortOrder || 'desc'
+        sortBy: request.sortBy || 'created_at',
+        sortOrder: request.sortOrder || 'desc'
       });
 
       const files: FileInfo[] = result.files.map(fileUpload => ({
@@ -530,7 +531,7 @@ export class FileService implements IFileService {
     }
   }
 
-  async getStorageStats(userId: string): Promise<ServiceResponse<{
+  async getStorageStats(userId: string): Promise<FileServiceResponse<{
     totalFiles: number;
     totalSize: number;
     usedStorageFormatted: string;
@@ -603,7 +604,7 @@ export class FileService implements IFileService {
     }
   }
 
-  async generateUploadUrl(userId: string, filename: string, mimeType: string): Promise<ServiceResponse<{ uploadUrl: string; fileKey: string }>> {
+  async generateUploadUrl(userId: string, filename: string, mimeType: string): Promise<FileServiceResponse<{ uploadUrl: string; fileKey: string }>> {
     try {
       if (!userId || !filename || !mimeType) {
         throw new ValidationError('User ID, filename, and MIME type are required');

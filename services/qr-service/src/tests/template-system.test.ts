@@ -29,7 +29,16 @@ async function testTemplateSystem() {
     })
   };
 
-  const templateService = new QRTemplateService(logger, mockQRService as any);
+  const mockRepository = {
+    findAll: () => Promise.resolve([]),
+    findById: () => Promise.resolve(null),
+    findByCategory: () => Promise.resolve([]),
+    findBySubscriptionTier: () => Promise.resolve([]),
+    create: () => Promise.resolve(null),
+    update: () => Promise.resolve(null),
+    delete: () => Promise.resolve(true)
+  } as any;
+  const templateService = new QRTemplateService(mockRepository, logger, mockQRService as any);
 
   try {
     // Test 1: Get all templates
@@ -85,16 +94,16 @@ async function testTemplateSystem() {
 
     // Test 6: Test subscription tier filtering
     console.log('\n🎟️ Test 6: Testing subscription tier filtering...');
-    const freeTemplates = templateService.getTemplatesByTier('free');
-    const proTemplates = templateService.getTemplatesByTier('pro');
+    const freeTemplates = await templateService.getTemplatesForTier('free');
+    const proTemplates = await templateService.getTemplatesForTier('pro');
     console.log(`✅ Free tier: ${freeTemplates.length} templates`);
     console.log(`✅ Pro tier: ${proTemplates.length} templates`);
 
     // Test 7: Get popular templates
     console.log('\n⭐ Test 7: Getting popular templates...');
-    const popularTemplates = templateService.getPopularTemplates();
+    const popularTemplates = await templateService.getPopularTemplates();
     console.log(`✅ Popular templates: ${popularTemplates.length}`);
-    console.log('Popular template names:', popularTemplates.map(t => t.name).join(', '));
+    console.log('Popular template names:', popularTemplates.map((t: any) => t.name).join(', '));
 
     console.log('\n🎉 All template system tests passed!\n');
 

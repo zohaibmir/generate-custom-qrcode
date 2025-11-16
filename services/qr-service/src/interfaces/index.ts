@@ -34,6 +34,12 @@ export interface IQRService {
   updateQR(id: string, qrData: Partial<CreateQRRequest>): Promise<ServiceResponse<QRCode>>;
   deleteQR(id: string): Promise<ServiceResponse<boolean>>;
   generateQRImage(qrCodeId: string, format?: ImageFormat): Promise<ServiceResponse<Buffer>>;
+  
+  // QR Validity and Scanning methods
+  processScan(shortId: string, password?: string): Promise<ServiceResponse<ScanAttemptResult>>;
+  validateQRForScan(shortId: string, password?: string): Promise<ServiceResponse<QRValidityCheck>>;
+  updateValiditySettings(qrId: string, validityData: any, userTier: string): Promise<ServiceResponse<QRCode>>;
+  getValidityLimits(tier: string): ServiceResponse<any>;
 }
 
 export interface IHealthChecker {
@@ -1021,10 +1027,128 @@ export type BulkItemStatus =
   | 'failed' 
   | 'skipped';
 
+export interface IQRContentRulesService {
+  createContentRule(qrCodeId: string, ruleData: CreateContentRuleRequest): Promise<ServiceResponse<ContentRule>>;
+  getQRContentRules(qrCodeId: string): Promise<ServiceResponse<ContentRule[]>>;
+  updateContentRule(ruleId: string, ruleData: Partial<CreateContentRuleRequest>): Promise<ServiceResponse<ContentRule>>;
+  deleteContentRule(ruleId: string): Promise<ServiceResponse<boolean>>;
+  resolveQRContent(qrCodeId: string, context: ScanContext): Promise<ServiceResponse<any>>;
+}
+
+export interface IDynamicQRService {
+  // Content Version Management
+  createContentVersion(qrCodeId: string, versionData: any): Promise<ServiceResponse<any>>;
+  getContentVersions(qrCodeId: string): Promise<ServiceResponse<any[]>>;
+  getActiveContentVersion(qrCodeId: string): Promise<ServiceResponse<any>>;
+  updateContentVersion(versionId: string, updateData: any): Promise<ServiceResponse<any>>;
+  activateContentVersion(versionId: string): Promise<ServiceResponse<any>>;
+  deactivateContentVersion(versionId: string): Promise<ServiceResponse<any>>;
+  deleteContentVersion(versionId: string): Promise<ServiceResponse<boolean>>;
+  
+  // A/B Testing
+  createABTest(qrCodeId: string, testData: any): Promise<ServiceResponse<any>>;
+  getABTests(qrCodeId: string): Promise<ServiceResponse<any[]>>;
+  updateABTest(testId: string, updateData: any): Promise<ServiceResponse<any>>;
+  startABTest(testId: string): Promise<ServiceResponse<any>>;
+  pauseABTest(testId: string): Promise<ServiceResponse<any>>;
+  completeABTest(testId: string, winnerVariant?: string): Promise<ServiceResponse<any>>;
+  deleteABTest(testId: string): Promise<ServiceResponse<boolean>>;
+  
+  // Redirect Rules
+  createRedirectRule(qrCodeId: string, ruleData: any): Promise<ServiceResponse<any>>;
+  getRedirectRules(qrCodeId: string): Promise<ServiceResponse<any[]>>;
+  updateRedirectRule(ruleId: string, updateData: any): Promise<ServiceResponse<any>>;
+  deleteRedirectRule(ruleId: string): Promise<ServiceResponse<boolean>>;
+  
+  // Content Scheduling
+  createContentSchedule(qrCodeId: string, scheduleData: any): Promise<ServiceResponse<any>>;
+  getContentSchedules(qrCodeId: string): Promise<ServiceResponse<any[]>>;
+  updateContentSchedule(scheduleId: string, updateData: any): Promise<ServiceResponse<any>>;
+  deleteContentSchedule(scheduleId: string): Promise<ServiceResponse<boolean>>;
+  
+  // Analytics & Resolution
+  getDynamicQRStats(qrCodeId: string): Promise<ServiceResponse<any>>;
+  resolveRedirect(qrCodeId: string, context: any): Promise<ServiceResponse<string>>;
+}
+
+export interface ContentRule {
+  id: string;
+  qr_code_id: string;
+  rule_name: string;
+  rule_type: 'time' | 'location' | 'language' | 'device';
+  rule_data: any;
+  content_type: 'url' | 'text' | 'landing_page';
+  content_value: string;
+  priority: number;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface CreateContentRuleRequest {
+  rule_name: string;
+  rule_type: 'time' | 'location' | 'language' | 'device';
+  rule_data: any;
+  content_type: 'url' | 'text' | 'landing_page';
+  content_value: string;
+  priority?: number;
+  is_active?: boolean;
+}
+
+export interface ScanContext {
+  timestamp: Date;
+  timezone: string;
+  location?: {
+    country: string;
+    region: string;
+    city: string;
+    coordinates?: { lat: number; lng: number; };
+  };
+  device: {
+    type: 'mobile' | 'tablet' | 'desktop';
+    os: string;
+    browser: string;
+    screen_size: { width: number; height: number; };
+  };
+  language: {
+    browser_languages: string[];
+    detected_language: string;
+  };
+  ip_address: string;
+  user_agent: string;
+}
+
 // CSV Processing Interface
 export interface ICsvProcessor {
   parse(csvData: string): Promise<any[]>;
   validate(data: any[], template?: BulkQRTemplate): Promise<BulkValidationResult>;
   mapFields(data: any[], fieldMappings: Record<string, string>): any[];
   applyDefaults(data: any[], defaultValues: Record<string, any>): any[];
+}
+
+// ===============================================
+// REPOSITORY INTERFACES - Missing Implementations
+// ===============================================
+
+// Template Repository Interface
+export interface IQRTemplateRepository {
+  findAll(): Promise<QRTemplate[]>;
+  findById(id: string): Promise<QRTemplate | null>;
+  findByCategory(category: QRTemplateCategory): Promise<QRTemplate[]>;
+  findBySubscriptionTier(tier: SubscriptionTier): Promise<QRTemplate[]>;
+  findPopular(): Promise<QRTemplate[]>;
+  create(templateData: Partial<QRTemplate>): Promise<QRTemplate>;
+  update(id: string, templateData: Partial<QRTemplate>): Promise<QRTemplate>;
+  delete(id: string): Promise<boolean>;
+}
+
+// Content Rules Repository Interface  
+export interface IQRContentRulesRepository {
+  create(ruleData: any): Promise<ContentRule>;
+  findById(id: string): Promise<ContentRule | null>;
+  findByQRCodeId(qrCodeId: string): Promise<ContentRule[]>;
+  update(id: string, ruleData: any): Promise<ContentRule>;
+  delete(id: string): Promise<boolean>;
+  findActiveRulesByQRCodeId(qrCodeId: string): Promise<ContentRule[]>;
+  findRulesByPriority(qrCodeId: string, ascending?: boolean): Promise<ContentRule[]>;
 }

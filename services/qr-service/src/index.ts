@@ -63,8 +63,12 @@ class QRServiceApplication {
       
       // Register services
       const qrService = new QRService(qrRepository, qrGenerator, shortIdGenerator, this.logger);
+      
+      // Register template services with repository pattern
       const { QRTemplateService } = require('./services/qr-template.service');
-      const qrTemplateService = new QRTemplateService(this.logger, qrService);
+      const { QRTemplateRepository } = require('./repositories/qr-template.repository');
+      const qrTemplateRepository = new QRTemplateRepository(this.logger);
+      const qrTemplateService = new QRTemplateService(qrTemplateRepository, this.logger, qrService);
       
       // Register bulk QR services
       const { BulkQRRepository } = require('./repositories/bulk-qr.repository');
@@ -75,10 +79,39 @@ class QRServiceApplication {
       const csvProcessor = new CsvProcessor(this.logger);
       const bulkQRService = new BulkQRService(bulkQRRepository, qrService, csvProcessor, this.logger);
       
+      // Register category services
+      const { QRCategoryService } = require('./services/qr-category.service');
+      const { QRCategoryRepository } = require('./repositories/qr-category.repository');
+      
+      const qrCategoryRepository = new QRCategoryRepository(database, this.logger);
+      const qrCategoryService = new QRCategoryService(qrCategoryRepository, this.logger);
+      
+      // Register dynamic QR services
+      const { DynamicQRService } = require('./services/DynamicQRService');
+      const { DynamicQRRepository } = require('./repositories/DynamicQRRepository');
+      
+      const dynamicQRRepository = new DynamicQRRepository(database);
+      const dynamicQRService = new DynamicQRService(dynamicQRRepository);
+      
+      // Register content rules services
+      const { QRContentRulesService } = require('./services/qr-content-rules.service');
+      const { QRContentRulesRepository } = require('./repositories/qr-content-rules.repository');
+      
+      const qrContentRulesRepository = new QRContentRulesRepository(database, this.logger);
+      const qrContentRulesService = new QRContentRulesService(qrContentRulesRepository, this.logger);
+      
       const healthChecker = new HealthChecker(this.logger, this.container);
       
+      // Register all services in container
       this.container.register('qrService', qrService);
+      this.container.register('qrTemplateRepository', qrTemplateRepository);
       this.container.register('qrTemplateService', qrTemplateService);
+      this.container.register('qrCategoryService', qrCategoryService);
+      this.container.register('qrCategoryRepository', qrCategoryRepository);
+      this.container.register('dynamicQRService', dynamicQRService);
+      this.container.register('dynamicQRRepository', dynamicQRRepository);
+      this.container.register('qrContentRulesService', qrContentRulesService);
+      this.container.register('qrContentRulesRepository', qrContentRulesRepository);
       this.container.register('bulkQRRepository', bulkQRRepository);
       this.container.register('bulkQRService', bulkQRService);
       this.container.register('csvProcessor', csvProcessor);
@@ -149,44 +182,20 @@ class QRServiceApplication {
   }
 
   private setupRoutes(): void {
-    const qrService = this.container.resolve<IQRService>('qrService');
-    const healthChecker = this.container.resolve<IHealthChecker>('healthChecker');
-
-    // Health check endpoint
-    this.app.get('/health', async (req, res) => {
-      try {
-        const health = await healthChecker.checkHealth();
-        const statusCode = health.status === 'healthy' ? 200 : 
-                          health.status === 'degraded' ? 200 : 503;
-        
-        res.status(statusCode).json({
-          success: true,
-          data: health
-        });
-      } catch (error) {
-        this.logger.error('Health check failed', { error });
-        res.status(503).json({
-          success: false,
-          error: {
-            code: 'HEALTH_CHECK_FAILED',
-            message: 'Health check failed',
-            statusCode: 503
-          }
-        });
-      }
-    });
-
-    // QR Code routes
-    this.setupQRRoutes(qrService);
+    // Health routes first - no authentication needed
+    const healthChecker = this.container.resolve('healthChecker');
+    const { createHealthRoutes } = require('./routes/health.routes');
+    const healthRoutes = createHealthRoutes(healthChecker, this.logger);
+    this.app.use('/', healthRoutes);
+    
+    // Clean Architecture Routes - using controllers and ServiceAuthExtractor
+    this.setupCleanArchitectureRoutes();
     
     // Advanced QR Features (Content Rules)
     this.setupContentRulesRoutes();
     
     // Dynamic QR routes
     this.setupDynamicQRRoutes();
-    
-    // Template routes
-    this.setupTemplateRoutes();
     
     // Bulk QR routes
     this.setupBulkQRRoutes();
@@ -210,294 +219,41 @@ class QRServiceApplication {
     });
   }
 
-  private setupQRRoutes(qrService: IQRService): void {
-    // Create QR Code
-    this.app.post('/qr', async (req, res) => {
-      try {
-        const userId = this.extractUserId(req); // TODO: Extract from JWT token
-        const subscriptionTier = req.headers['x-subscription-tier'] as string || 'free';
-        const result = await qrService.createQR(userId, req.body, subscriptionTier);
-        
-        const statusCode = result.success ? 201 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_CREATION_FAILED');
-      }
-    });
-
-    // Get QR Code by ID
-    this.app.get('/qr/:id', async (req, res) => {
-      try {
-        const result = await qrService.getQRById(req.params.id);
-        
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_FETCH_FAILED');
-      }
-    });
-
-    // Get user's QR Codes
-    this.app.get('/qr', async (req, res) => {
-      try {
-        const userId = this.extractUserId(req);
-        const pagination = {
-          page: parseInt(req.query.page as string) || 1,
-          limit: Math.min(parseInt(req.query.limit as string) || 20, 100)
-        };
-        
-        const result = await qrService.getUserQRs(userId, pagination);
-        
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_FETCH_FAILED');
-      }
-    });
-
-    // Update QR Code
-    this.app.put('/qr/:id', async (req, res) => {
-      try {
-        const result = await qrService.updateQR(req.params.id, req.body);
-        
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_UPDATE_FAILED');
-      }
-    });
-
-    // Delete QR Code
-    this.app.delete('/qr/:id', async (req, res) => {
-      try {
-        const result = await qrService.deleteQR(req.params.id);
-        
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_DELETE_FAILED');
-      }
-    });
-
-    // Generate QR Image
-    this.app.get('/qr/:id/image', async (req, res) => {
-      try {
-        const format = (req.query.format as any) || 'png';
-        const result = await qrService.generateQRImage(req.params.id, format);
-        
-        if (result.success && result.data) {
-          res.set({
-            'Content-Type': `image/${format}`,
-            'Content-Disposition': `inline; filename="qr-${req.params.id}.${format}"`
-          });
-          res.send(result.data);
-        } else {
-          const statusCode = result.error?.statusCode || 500;
-          res.status(statusCode).json(result);
-        }
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_IMAGE_GENERATION_FAILED');
-      }
-    });
-
-    // Download QR Image
-    this.app.get('/qr/:id/download', async (req, res) => {
-      try {
-        const format = (req.query.format as any) || 'png';
-        const size = parseInt(req.query.size as string) || 512;
-        const result = await qrService.generateQRImage(req.params.id, format);
-        
-        if (result.success && result.data) {
-          res.set({
-            'Content-Type': `image/${format}`,
-            'Content-Disposition': `attachment; filename="qr-code-${req.params.id}.${format}"`,
-            'Content-Length': result.data.length.toString()
-          });
-          res.send(result.data);
-        } else {
-          const statusCode = result.error?.statusCode || 500;
-          res.status(statusCode).json(result);
-        }
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_DOWNLOAD_FAILED');
-      }
-    });
-
-    // Redirect endpoint (with validity checking)
-    this.app.get('/redirect/:shortId', async (req, res) => {
-      try {
-        const password = req.query.password as string;
-        const result = await (qrService as any).processScan(req.params.shortId, password);
-        
-        if (result.success && result.data?.canScan) {
-          // Get the QR data for redirect
-          const qrResult = await qrService.getQRByShortId(req.params.shortId);
-          
-          if (qrResult.success && qrResult.data) {
-            this.logger.info('QR scan successful', { 
-              shortId: req.params.shortId,
-              qrId: qrResult.data.id,
-              scans: result.data.newScanCount
-            });
-            
-            // In production, this would redirect to the actual URL
-            res.json({ 
-              success: true,
-              message: 'QR scan successful',
-              redirectTo: qrResult.data.targetUrl,
-              scans: result.data.newScanCount
-            });
-          } else {
-            res.status(404).json({
-              success: false,
-              error: { message: 'QR code not found' }
-            });
-          }
-        } else {
-          // QR scan was blocked
-          res.status(403).json({
-            success: false,
-            error: {
-              message: result.data?.message || 'QR code scan not allowed',
-              reason: result.data?.reason,
-              validityCheck: result.data?.validityCheck
-            }
-          });
-        }
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_REDIRECT_FAILED');
-      }
-    });
-
-    // Validate QR Code (check if scannable without incrementing count)
-    this.app.get('/qr/:shortId/validate', async (req, res) => {
-      try {
-        const password = req.query.password as string;
-        const result = await (qrService as any).validateQRForScan(req.params.shortId, password);
-        
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'QR_VALIDATION_FAILED');
-      }
-    });
-
-    // Update QR Validity Settings
-    this.app.put('/qr/:id/validity', async (req, res) => {
-      try {
-        const userId = this.extractUserId(req);
-        const userTier = req.headers['x-subscription-tier'] as string || 'free';
-        
-        const result = await (qrService as any).updateValiditySettings(
-          req.params.id, 
-          req.body,
-          userTier
-        );
-        
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'VALIDITY_UPDATE_FAILED');
-      }
-    });
-
-    // Get Validity Limits for Subscription Tier
-    this.app.get('/validity-limits/:tier', async (req, res) => {
-      try {
-        const result = (qrService as any).getValidityLimits(req.params.tier);
-        
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-        
-      } catch (error) {
-        this.handleRouteError(error, res, 'LIMITS_FETCH_FAILED');
-      }
-    });
-  }
-
-  private setupTemplateRoutes(): void {
-    const templateService = this.container.resolve<any>('qrTemplateService');
-
-    // Get all templates
-    this.app.get('/templates', async (req, res) => {
-      try {
-        const result = await templateService.getAllTemplates();
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-      } catch (error) {
-        this.handleRouteError(error, res, 'TEMPLATE_FETCH_FAILED');
-      }
-    });
-
-    // Get templates by category
-    this.app.get('/templates/category/:category', async (req, res) => {
-      try {
-        const result = await templateService.getTemplatesByCategory(req.params.category);
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-      } catch (error) {
-        this.handleRouteError(error, res, 'TEMPLATE_FETCH_FAILED');
-      }
-    });
-
-    // Get template by ID
-    this.app.get('/templates/:id', async (req, res) => {
-      try {
-        const result = await templateService.getTemplateById(req.params.id);
-        const statusCode = result.success ? 200 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-      } catch (error) {
-        this.handleRouteError(error, res, 'TEMPLATE_FETCH_FAILED');
-      }
-    });
-
-    // Create QR from template
-    this.app.post('/templates/:id/generate', async (req, res) => {
-      try {
-        const userId = this.extractUserId(req);
-        const result = await templateService.createQRFromTemplate(
-          req.params.id, 
-          userId, 
-          req.body
-        );
-        const statusCode = result.success ? 201 : (result.error?.statusCode || 500);
-        res.status(statusCode).json(result);
-      } catch (error) {
-        this.handleRouteError(error, res, 'TEMPLATE_QR_CREATION_FAILED');
-      }
-    });
-
-    // Validate template data
-    this.app.post('/templates/:id/validate', async (req, res) => {
-      try {
-        const result = await templateService.validateTemplateData(req.params.id, req.body);
-        res.status(200).json({
-          success: true,
-          data: result
-        });
-      } catch (error) {
-        this.handleRouteError(error, res, 'TEMPLATE_VALIDATION_FAILED');
-      }
-    });
+  private setupCleanArchitectureRoutes(): void {
+    try {
+      // Get services from dependency container
+      const qrService = this.container.resolve('qrService');
+      const qrTemplateService = this.container.resolve('qrTemplateService');
+      const qrCategoryService = this.container.resolve('qrCategoryService');
+      
+      // Register Clean Architecture QR routes with proper authentication
+      const { createQRRoutes } = require('./routes/qr.routes');
+      const qrRoutes = createQRRoutes(qrService, this.logger);
+      this.app.use('/', qrRoutes);
+      
+      // Register Clean Architecture Template routes
+      const { createTemplateRoutes } = require('./routes/template.routes');
+      const templateRoutes = createTemplateRoutes(qrTemplateService, this.logger);
+      this.app.use('/', templateRoutes);
+      
+      // Register Clean Architecture Category routes
+      const { createCategoryRoutes } = require('./routes/categories.routes');
+      const categoryRoutes = createCategoryRoutes(qrCategoryService, this.logger);
+      this.app.use('/categories', categoryRoutes);
+      
+      this.logger.info('Clean Architecture routes registered successfully');
+    } catch (error) {
+      this.logger.error('Failed to register Clean Architecture routes', { error });
+    }
   }
 
   private setupBulkQRRoutes(): void {
     try {
-      const bulkQRService = this.container.resolve<IBulkQRService>('bulkQRService');
-      const { BulkQRRoutes } = require('./routes/bulk-qr.routes');
-      const bulkQRRoutes = new BulkQRRoutes(bulkQRService);
+      const bulkQRService = this.container.resolve('bulkQRService');
+      const { createBulkQRRoutes } = require('./routes/bulk-qr.routes');
+      const bulkQRRoutes = createBulkQRRoutes(bulkQRService, this.logger);
       
-      this.app.use('/bulk', bulkQRRoutes.getRouter());
+      this.app.use('/bulk', bulkQRRoutes);
       this.logger.info('Bulk QR routes registered successfully');
     } catch (error) {
       this.logger.error('Failed to register Bulk QR routes', { error });
@@ -507,7 +263,11 @@ class QRServiceApplication {
   private setupContentRulesRoutes(): void {
     // Import and use the advanced QR features routes
     try {
-      const contentRulesRoutes = require('./routes/qr-content-rules.routes').default;
+      const qrContentRulesService = this.container.resolve('qrContentRulesService');
+      const qrService = this.container.resolve('qrService');
+      const { createQRContentRulesRoutes } = require('./routes/qr-content-rules.routes');
+      const contentRulesRoutes = createQRContentRulesRoutes(qrContentRulesService, qrService, this.logger);
+      
       this.app.use('/qr', contentRulesRoutes);
       this.logger.info('Advanced QR Features (Content Rules) routes registered successfully');
     } catch (error) {
@@ -518,61 +278,14 @@ class QRServiceApplication {
   private setupDynamicQRRoutes(): void {
     // Import and use the dynamic QR routes
     try {
-      const dynamicQRRoutes = require('./routes/dynamic-qr.routes').default;
-      this.app.use('/qr', dynamicQRRoutes);
+      const dynamicQRService = this.container.resolve('dynamicQRService');
+      const { createDynamicQRRoutes } = require('./routes/dynamic-qr.routes');
+      const dynamicQRRoutes = createDynamicQRRoutes(dynamicQRService, this.logger);
+      
+      this.app.use('/dynamic', dynamicQRRoutes);
       this.logger.info('Dynamic QR routes registered successfully');
     } catch (error) {
       this.logger.error('Failed to register Dynamic QR routes', { error });
-    }
-  }
-
-  private extractUserId(req: express.Request): string {
-    // Extract user ID from headers (x-user-id), query params, or request body
-    const userId = req.headers['x-user-id'] || 
-                   req.headers['X-User-Id'] || 
-                   req.headers['user-id'] || 
-                   req.query?.userId || 
-                   req.body?.userId;
-    
-    if (userId && typeof userId === 'string') {
-      return userId;
-    }
-    
-    // For debugging - log the issue
-    console.error('No user ID found in request', {
-      headers: Object.keys(req.headers),
-      query: req.query,
-      body: req.body
-    });
-    
-    // Return a more obvious error ID instead of silent failure
-    throw new Error('User ID is required but not found in request headers or parameters');
-  }
-  private handleRouteError(error: any, res: express.Response, defaultCode: string): void {
-    this.logger.error('Route error', { 
-      error: error instanceof Error ? error.message : 'Unknown error',
-      code: defaultCode 
-    });
-
-    if (error instanceof AppError) {
-      res.status(error.statusCode).json({
-        success: false,
-        error: {
-          code: error.code,
-          message: error.message,
-          statusCode: error.statusCode,
-          details: error.details
-        }
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        error: {
-          code: defaultCode,
-          message: 'Internal server error',
-          statusCode: 500
-        }
-      });
     }
   }
 

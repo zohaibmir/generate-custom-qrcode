@@ -1,5 +1,6 @@
 import { 
   IQRTemplateService, 
+  IQRTemplateRepository,
   QRTemplate, 
   QRTemplateCategory, 
   ServiceResponse, 
@@ -18,16 +19,14 @@ import {
  * 
  * Provides pre-configured QR code templates for common use cases
  * Follows SOLID principles with clean separation of concerns
+ * Uses repository pattern for data access
  */
 export class QRTemplateService implements IQRTemplateService {
-  private templates: QRTemplate[] = [];
-
   constructor(
+    private readonly templateRepository: IQRTemplateRepository,
     private readonly logger: ILogger,
     private readonly qrService: IQRService
-  ) {
-    this.initializeTemplates();
-  }
+  ) {}
 
   /**
    * Get all available templates
@@ -36,12 +35,14 @@ export class QRTemplateService implements IQRTemplateService {
     try {
       this.logger.info('Fetching all QR templates');
       
+      const templates = await this.templateRepository.findAll();
+      
       return {
         success: true,
-        data: this.templates,
+        data: templates,
         metadata: {
           timestamp: new Date().toISOString(),
-          total: this.templates.length
+          total: templates.length
         }
       };
     } catch (error) {
@@ -64,7 +65,7 @@ export class QRTemplateService implements IQRTemplateService {
     try {
       this.logger.info('Fetching template by ID', { templateId: id });
       
-      const template = this.templates.find(t => t.id === id);
+      const template = await this.templateRepository.findById(id);
       if (!template) {
         throw new NotFoundError('Template');
       }
@@ -109,15 +110,15 @@ export class QRTemplateService implements IQRTemplateService {
     try {
       this.logger.info('Fetching templates by category', { category });
       
-      const filteredTemplates = this.templates.filter(t => t.category === category);
+      const templates = await this.templateRepository.findByCategory(category as QRTemplateCategory);
       
       return {
         success: true,
-        data: filteredTemplates,
+        data: templates,
         metadata: {
           timestamp: new Date().toISOString(),
           category,
-          total: filteredTemplates.length
+          total: templates.length
         }
       };
     } catch (error) {
@@ -263,9 +264,9 @@ export class QRTemplateService implements IQRTemplateService {
   }
 
   /**
-   * Get templates by subscription tier
+   * Get templates for a specific subscription tier
    */
-  getTemplatesByTier(tier: SubscriptionTier): QRTemplate[] {
+  async getTemplatesForTier(tier: SubscriptionTier): Promise<QRTemplate[]> {
     const tierHierarchy: Record<SubscriptionTier, number> = {
       free: 0,
       starter: 1,
@@ -275,8 +276,9 @@ export class QRTemplateService implements IQRTemplateService {
     };
 
     const userTierLevel = tierHierarchy[tier];
+    const allTemplates = await this.templateRepository.findAll();
     
-    return this.templates.filter(template => {
+    return allTemplates.filter((template: QRTemplate) => {
       const requiredTierLevel = tierHierarchy[template.requiredSubscriptionTier];
       return requiredTierLevel <= userTierLevel;
     });
@@ -285,8 +287,9 @@ export class QRTemplateService implements IQRTemplateService {
   /**
    * Get popular templates
    */
-  getPopularTemplates(): QRTemplate[] {
-    return this.templates.filter(t => t.isPopular);
+  async getPopularTemplates(): Promise<QRTemplate[]> {
+    const allTemplates = await this.templateRepository.findAll();
+    return allTemplates.filter((t: QRTemplate) => t.isPopular);
   }
 
   /**
@@ -390,404 +393,8 @@ export class QRTemplateService implements IQRTemplateService {
     return replaceContent(content);
   }
 
-  /**
-   * Initialize default templates
+    /**
+   * Note: Template initialization is now handled by the QRTemplateRepository
+   * This service no longer manages template data directly, following Clean Architecture principles
    */
-  private initializeTemplates(): void {
-    this.templates = [
-      // Restaurant Menu Template
-      {
-        id: 'restaurant-menu',
-        name: 'Restaurant Menu',
-        description: 'Create a QR code that links to your digital menu',
-        category: 'hospitality',
-        type: 'url',
-        icon: '🍽️',
-        isPopular: true,
-        isPremium: false,
-        requiredSubscriptionTier: 'free',
-        defaultConfig: {
-          size: 300,
-          errorCorrectionLevel: 'M',
-          color: {
-            foreground: '#8B4513',
-            background: '#FFFFFF'
-          }
-        },
-        fields: [
-          {
-            id: 'name',
-            name: 'name',
-            label: 'QR Code Name',
-            type: 'text',
-            required: true,
-            placeholder: 'e.g., Main Menu QR',
-            validation: { minLength: 3, maxLength: 50 }
-          },
-          {
-            id: 'menuUrl',
-            name: 'menuUrl',
-            label: 'Menu URL',
-            type: 'url',
-            required: true,
-            placeholder: 'https://yourrestaurant.com/menu',
-            validation: { pattern: '^https?://.+' }
-          },
-          {
-            id: 'restaurantName',
-            name: 'restaurantName',
-            label: 'Restaurant Name',
-            type: 'text',
-            required: false,
-            placeholder: 'Your Restaurant Name'
-          }
-        ],
-        contentStructure: {
-          url: '{{menuUrl}}'
-        },
-        examples: [
-          {
-            name: 'Pizza Palace Menu',
-            description: 'Digital menu for a pizza restaurant',
-            data: {
-              name: 'Pizza Palace Menu QR',
-              menuUrl: 'https://pizzapalace.com/menu',
-              restaurantName: 'Pizza Palace'
-            }
-          }
-        ],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-
-      // WiFi Access Template
-      {
-        id: 'wifi-access',
-        name: 'WiFi Access',
-        description: 'Let customers connect to your WiFi instantly',
-        category: 'business',
-        type: 'wifi',
-        icon: '📶',
-        isPopular: true,
-        isPremium: false,
-        requiredSubscriptionTier: 'free',
-        defaultConfig: {
-          size: 250,
-          errorCorrectionLevel: 'M',
-          color: {
-            foreground: '#4169E1',
-            background: '#FFFFFF'
-          }
-        },
-        fields: [
-          {
-            id: 'name',
-            name: 'name',
-            label: 'QR Code Name',
-            type: 'text',
-            required: true,
-            placeholder: 'e.g., Cafe WiFi Access'
-          },
-          {
-            id: 'ssid',
-            name: 'ssid',
-            label: 'WiFi Network Name (SSID)',
-            type: 'text',
-            required: true,
-            placeholder: 'CafeWiFi_Guest'
-          },
-          {
-            id: 'password',
-            name: 'password',
-            label: 'WiFi Password',
-            type: 'password',
-            required: true,
-            placeholder: 'Enter WiFi password'
-          },
-          {
-            id: 'security',
-            name: 'security',
-            label: 'Security Type',
-            type: 'select',
-            required: true,
-            options: [
-              { value: 'WPA', label: 'WPA/WPA2' },
-              { value: 'WEP', label: 'WEP' },
-              { value: 'nopass', label: 'No Password' }
-            ],
-            defaultValue: 'WPA'
-          }
-        ],
-        contentStructure: {
-          ssid: '{{ssid}}',
-          password: '{{password}}',
-          security: '{{security}}'
-        },
-        examples: [
-          {
-            name: 'Coffee Shop WiFi',
-            description: 'Guest WiFi access for coffee shop',
-            data: {
-              name: 'Coffee Shop Guest WiFi',
-              ssid: 'CoffeeShop_Guest',
-              password: 'coffee123',
-              security: 'WPA'
-            }
-          }
-        ],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-
-      // Contact Card Template
-      {
-        id: 'contact-card',
-        name: 'Contact Card',
-        description: 'Share your contact information instantly',
-        category: 'business',
-        type: 'vcard',
-        icon: '👤',
-        isPopular: true,
-        isPremium: false,
-        requiredSubscriptionTier: 'free',
-        defaultConfig: {
-          size: 300,
-          errorCorrectionLevel: 'M',
-          color: {
-            foreground: '#2E8B57',
-            background: '#FFFFFF'
-          }
-        },
-        fields: [
-          {
-            id: 'name',
-            name: 'name',
-            label: 'QR Code Name',
-            type: 'text',
-            required: true,
-            placeholder: 'e.g., John Smith Contact'
-          },
-          {
-            id: 'firstName',
-            name: 'firstName',
-            label: 'First Name',
-            type: 'text',
-            required: true,
-            placeholder: 'John'
-          },
-          {
-            id: 'lastName',
-            name: 'lastName',
-            label: 'Last Name',
-            type: 'text',
-            required: true,
-            placeholder: 'Smith'
-          },
-          {
-            id: 'email',
-            name: 'email',
-            label: 'Email',
-            type: 'email',
-            required: false,
-            placeholder: 'john@example.com'
-          },
-          {
-            id: 'phone',
-            name: 'phone',
-            label: 'Phone Number',
-            type: 'phone',
-            required: false,
-            placeholder: '+1-555-123-4567'
-          },
-          {
-            id: 'company',
-            name: 'company',
-            label: 'Company',
-            type: 'text',
-            required: false,
-            placeholder: 'Your Company'
-          },
-          {
-            id: 'title',
-            name: 'title',
-            label: 'Job Title',
-            type: 'text',
-            required: false,
-            placeholder: 'Software Engineer'
-          }
-        ],
-        contentStructure: {
-          firstName: '{{firstName}}',
-          lastName: '{{lastName}}',
-          email: '{{email}}',
-          phone: '{{phone}}',
-          company: '{{company}}',
-          title: '{{title}}'
-        },
-        examples: [
-          {
-            name: 'Business Card',
-            description: 'Professional contact card',
-            data: {
-              name: 'John Smith Contact',
-              firstName: 'John',
-              lastName: 'Smith',
-              email: 'john@techcorp.com',
-              phone: '+1-555-123-4567',
-              company: 'TechCorp',
-              title: 'Senior Developer'
-            }
-          }
-        ],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-
-      // Event RSVP Template
-      {
-        id: 'event-rsvp',
-        name: 'Event RSVP',
-        description: 'Collect RSVPs for your events easily',
-        category: 'events',
-        type: 'url',
-        icon: '🎉',
-        isPopular: true,
-        isPremium: true,
-        requiredSubscriptionTier: 'pro',
-        defaultConfig: {
-          size: 300,
-          errorCorrectionLevel: 'M',
-          color: {
-            foreground: '#FF6347',
-            background: '#FFFFFF'
-          }
-        },
-        fields: [
-          {
-            id: 'name',
-            name: 'name',
-            label: 'QR Code Name',
-            type: 'text',
-            required: true,
-            placeholder: 'e.g., Wedding RSVP'
-          },
-          {
-            id: 'eventName',
-            name: 'eventName',
-            label: 'Event Name',
-            type: 'text',
-            required: true,
-            placeholder: 'Annual Company Party'
-          },
-          {
-            id: 'rsvpUrl',
-            name: 'rsvpUrl',
-            label: 'RSVP Form URL',
-            type: 'url',
-            required: true,
-            placeholder: 'https://forms.google.com/your-rsvp-form',
-            validation: { pattern: '^https?://.+' }
-          },
-          {
-            id: 'eventDate',
-            name: 'eventDate',
-            label: 'Event Date',
-            type: 'text',
-            required: false,
-            placeholder: 'December 25, 2024'
-          }
-        ],
-        contentStructure: {
-          url: '{{rsvpUrl}}'
-        },
-        examples: [
-          {
-            name: 'Wedding RSVP',
-            description: 'RSVP collection for wedding',
-            data: {
-              name: 'Wedding RSVP QR',
-              eventName: 'John & Jane Wedding',
-              rsvpUrl: 'https://forms.google.com/wedding-rsvp',
-              eventDate: 'June 15, 2025'
-            }
-          }
-        ],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-
-      // Social Media Profile Template
-      {
-        id: 'social-profile',
-        name: 'Social Media Profile',
-        description: 'Link to your social media profiles',
-        category: 'social',
-        type: 'url',
-        icon: '📱',
-        isPopular: true,
-        isPremium: false,
-        requiredSubscriptionTier: 'free',
-        defaultConfig: {
-          size: 250,
-          errorCorrectionLevel: 'M',
-          color: {
-            foreground: '#1DA1F2',
-            background: '#FFFFFF'
-          }
-        },
-        fields: [
-          {
-            id: 'name',
-            name: 'name',
-            label: 'QR Code Name',
-            type: 'text',
-            required: true,
-            placeholder: 'e.g., My Instagram Profile'
-          },
-          {
-            id: 'platform',
-            name: 'platform',
-            label: 'Social Platform',
-            type: 'select',
-            required: true,
-            options: [
-              { value: 'instagram', label: 'Instagram' },
-              { value: 'twitter', label: 'Twitter/X' },
-              { value: 'linkedin', label: 'LinkedIn' },
-              { value: 'facebook', label: 'Facebook' },
-              { value: 'tiktok', label: 'TikTok' },
-              { value: 'youtube', label: 'YouTube' }
-            ]
-          },
-          {
-            id: 'profileUrl',
-            name: 'profileUrl',
-            label: 'Profile URL',
-            type: 'url',
-            required: true,
-            placeholder: 'https://instagram.com/yourusername',
-            validation: { pattern: '^https?://.+' }
-          }
-        ],
-        contentStructure: {
-          url: '{{profileUrl}}'
-        },
-        examples: [
-          {
-            name: 'Instagram Profile',
-            description: 'Link to Instagram business profile',
-            data: {
-              name: 'Business Instagram',
-              platform: 'instagram',
-              profileUrl: 'https://instagram.com/yourbusiness'
-            }
-          }
-        ],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    ];
-
-    this.logger.info(`Initialized ${this.templates.length} QR templates`);
-  }
 }

@@ -106,43 +106,6 @@ Import the included Postman collection for comprehensive API testing.
       }
     },
     schemas: {
-      User: {
-        type: 'object',
-        required: ['name', 'email'],
-        properties: {
-          id: {
-            type: 'string',
-            format: 'uuid',
-            description: 'Unique user identifier'
-          },
-          name: {
-            type: 'string',
-            description: 'User full name',
-            example: 'John Doe'
-          },
-          email: {
-            type: 'string',
-            format: 'email',
-            description: 'User email address',
-            example: 'john.doe@example.com'
-          },
-          subscriptionPlan: {
-            type: 'string',
-            enum: ['free', 'pro', 'enterprise'],
-            description: 'User subscription plan'
-          },
-          createdAt: {
-            type: 'string',
-            format: 'date-time',
-            description: 'User creation timestamp'
-          },
-          updatedAt: {
-            type: 'string',
-            format: 'date-time',
-            description: 'Last update timestamp'
-          }
-        }
-      },
       QRCode: {
         type: 'object',
         required: ['data', 'type', 'title'],
@@ -602,28 +565,7 @@ Import the included Postman collection for comprehensive API testing.
           }
         }
       },
-      Error: {
-        type: 'object',
-        properties: {
-          success: {
-            type: 'boolean',
-            example: false
-          },
-          error: {
-            type: 'object',
-            properties: {
-              code: {
-                type: 'string',
-                description: 'Error code'
-              },
-              message: {
-                type: 'string',
-                description: 'Error message'
-              }
-            }
-          }
-        }
-      },
+
       ErrorResponse: {
         type: 'object',
         properties: {

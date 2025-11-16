@@ -30,6 +30,15 @@ export {
   ServiceResponse
 };
 
+// Extended ServiceResponse with metadata for file operations
+export interface FileServiceResponse<T = any> extends ServiceResponse<T> {
+  metadata?: {
+    timestamp: string;
+    requestId?: string;
+    [key: string]: any;
+  };
+}
+
 // Additional local request types
 export interface UploadFileRequest {
   file: {
@@ -48,6 +57,16 @@ export interface GetFileRequest {
   fileId: string;
   userId?: string;
   includeMetadata?: boolean;
+}
+
+export interface ListFilesRequest {
+  userId: string;
+  uploadType?: string;
+  mimeTypes?: string[];
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface DeleteFileRequest {
@@ -96,11 +115,11 @@ export interface IStorageProvider {
 
 // Service Interfaces
 export interface IFileService {
-  uploadFile(request: FileUploadRequest): Promise<ServiceResponse<FileInfo>>;
+  uploadFile(request: FileUploadRequest): Promise<FileServiceResponse<FileInfo>>;
   getFileById(fileId: string, userId?: string): Promise<FileEntity>;
-  downloadFile(fileId: string, userId?: string): Promise<ServiceResponse<{ buffer: Buffer; mimeType: string; filename: string; size: number; stream: any }>>;
+  downloadFile(fileId: string, userId?: string): Promise<FileServiceResponse<{ buffer: Buffer; mimeType: string; filename: string; size: number; stream: any }>>;
   deleteFile(fileId: string, userId: string): Promise<void>;
-  listUserFiles(userId: string, page?: number, limit?: number): Promise<ServiceResponse<{
+  listUserFiles(userId: string, page?: number, limit?: number): Promise<FileServiceResponse<{
     files: FileInfo[];
     pagination: {
       total: number;
@@ -109,13 +128,13 @@ export interface IFileService {
       totalPages: number;
     };
   }>>;
-  getStorageStats(userId: string): Promise<ServiceResponse<{
+  getStorageStats(userId: string): Promise<FileServiceResponse<{
     totalFiles: number;
     totalSize: number;
     usedStorageFormatted: string;
     byType: Record<string, { count: number; size: number; sizeFormatted: string }>;
   }>>;
-  generatePresignedUrl(fileId: string, userId: string, operation?: string, expiresIn?: number): Promise<ServiceResponse<{ url: string; expiresAt: string }>>;
+  generatePresignedUrl(fileId: string, userId: string, operation?: string, expiresIn?: number): Promise<FileServiceResponse<{ url: string; expiresAt: string }>>;
 }
 
 // Utility Interfaces

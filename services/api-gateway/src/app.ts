@@ -1,3 +1,9 @@
+/**
+ * Clean Architecture API Gateway Application
+ * Following Dependency Inversion and Clean Architecture principles
+ * Integrates the new authentication system
+ */
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -5,19 +11,27 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 
-// Import clean architecture components
+// Import Clean Architecture Components
 import { Logger } from './services/logger.service';
 import { ServiceRegistry } from './services/service-registry.service';
 import { HealthChecker } from './services/health-checker.service';
 import { HealthController } from './controllers/health.controller';
 import { ErrorHandler } from './middleware/error-handler.middleware';
 import { RequestLogger } from './middleware/request-logger.middleware';
-import { AdvancedAnalyticsRoutes } from './routes/advanced-analytics.routes';
 import { swaggerSpec } from './config/swagger';
+
+// Import Authentication Module
+import { 
+  AuthenticationModuleFactory,
+  DEFAULT_PUBLIC_ROUTES,
+  DEFAULT_PROTECTED_ROUTES,
+  DEFAULT_OPTIONAL_AUTH_ROUTES,
+  ServiceAuthExtractor 
+} from '@qr-saas/shared';
 
 dotenv.config({ path: '../../.env' });
 
-class ApiGatewayApplication {
+class CleanApiGatewayApplication {
   private app: express.Application;
   private logger!: Logger;
   private serviceRegistry!: ServiceRegistry;
@@ -25,11 +39,12 @@ class ApiGatewayApplication {
   private healthController!: HealthController;
   private errorHandler!: ErrorHandler;
   private requestLogger!: RequestLogger;
-  private advancedAnalyticsRoutes!: AdvancedAnalyticsRoutes;
+  private authModule: any;
 
   constructor() {
     this.app = express();
     this.initializeDependencies();
+    this.initializeAuthentication();
     this.setupMiddleware();
     this.setupRoutes();
     this.setupErrorHandling();
@@ -42,20 +57,59 @@ class ApiGatewayApplication {
     this.healthController = new HealthController(this.healthChecker, this.logger);
     this.errorHandler = new ErrorHandler(this.logger);
     this.requestLogger = new RequestLogger(this.logger);
-    this.advancedAnalyticsRoutes = new AdvancedAnalyticsRoutes(this.logger, this.serviceRegistry);
 
     this.logger.info('Clean architecture dependencies initialized');
   }
 
+  private initializeAuthentication(): void {
+    const jwtSecret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+    
+    if (!jwtSecret || jwtSecret === 'your-super-secret-jwt-key-change-in-production') {
+      this.logger.warn('Using default JWT secret - CHANGE THIS IN PRODUCTION!');
+    }
+
+    // Create authentication module with dependency injection
+    this.authModule = AuthenticationModuleFactory.create({
+      jwtSecret,
+      jwtIssuer: 'qr-saas-api-gateway',
+      publicRoutes: DEFAULT_PUBLIC_ROUTES,
+      protectedRoutes: DEFAULT_PROTECTED_ROUTES,
+      optionalAuthRoutes: DEFAULT_OPTIONAL_AUTH_ROUTES,
+      enableAuditLogging: process.env.NODE_ENV === 'production'
+    });
+
+    // Validate configuration
+    const isValid = this.authModule.jwtTokenService.validateConfiguration();
+    if (!isValid) {
+      this.logger.error('Invalid JWT configuration detected');
+    }
+
+    this.logger.info('Authentication module initialized', {
+      jwtIssuer: 'qr-saas-api-gateway',
+      publicRoutes: DEFAULT_PUBLIC_ROUTES.length,
+      protectedRoutes: DEFAULT_PROTECTED_ROUTES.length,
+      optionalAuthRoutes: DEFAULT_OPTIONAL_AUTH_ROUTES.length
+    });
+  }
+
   private setupMiddleware(): void {
+    // Security middleware
     this.app.use(helmet());
-    this.app.use(cors());
+    this.app.use(cors({
+      origin: process.env.CORS_ORIGIN || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'],
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    }));
+
+    // Body parsing
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
 
+    // Rate limiting
     const limiter = rateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 5000, // Much higher limit for development and analytics
+      max: process.env.NODE_ENV === 'production' ? 1000 : 5000,
       message: {
         success: false,
         error: {
@@ -63,24 +117,33 @@ class ApiGatewayApplication {
           message: 'Too many requests from this IP',
           timestamp: new Date().toISOString()
         }
-      }
+      },
+      standardHeaders: true,
+      legacyHeaders: false
     });
     this.app.use(limiter);
+
+    // Request logging
     this.app.use(this.requestLogger.logRequest);
+
+    this.logger.info('Middleware setup completed');
   }
 
   private setupRoutes(): void {
-    // Swagger API Documentation
+    // Swagger API Documentation (always public)
     this.setupSwaggerDocumentation();
 
-    // Health endpoints with clean architecture
+    // Health endpoints (always public) 
     this.app.get('/health', (req, res) => this.healthController.getHealth(req, res));
     this.app.get('/health/:serviceName', (req, res) => this.healthController.getServiceHealth(req, res));
 
-    // Static file serving for QR code images
+    // Static file serving (public)
     this.setupStaticFileServing();
 
-    // Simple, working proxy routes (keeping what works while applying clean architecture principles)
+    // Apply Clean Architecture authentication middleware
+    this.app.use(this.authModule.createAuthMiddleware());
+
+    // Proxy routes (authentication handled by middleware)
     this.setupProxyRoutes();
 
     // 404 handler
@@ -88,7 +151,6 @@ class ApiGatewayApplication {
   }
 
   private setupSwaggerDocumentation(): void {
-    // Swagger UI setup with custom options
     const swaggerOptions = {
       customCss: `
         .swagger-ui .topbar { display: none }
@@ -107,60 +169,36 @@ class ApiGatewayApplication {
       }
     };
 
-    // Main API documentation
     this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerOptions));
-    
-    // JSON specification endpoint
     this.app.get('/api-docs.json', (req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.send(JSON.stringify(swaggerSpec, null, 2));
     });
 
-    // Welcome route with documentation links
+    // Welcome route
     this.app.get('/', (req, res) => {
       res.json({
-        message: '🚀 QR Code SaaS Platform API Gateway',
-        version: '1.0.0',
+        message: '🚀 QR Code SaaS Platform API Gateway v2.0',
+        version: '2.0.0',
         status: 'operational',
+        architecture: 'Clean Architecture with SOLID Principles',
+        authentication: 'JWT with Gateway-level validation',
         documentation: {
           swagger: '/api-docs',
-          json: '/api-docs.json',
-          postman: 'Import postman-collection.json for comprehensive testing'
+          json: '/api-docs.json'
         },
-        services: {
-          'user-service': 'User management and authentication with payment processing',
-          'qr-service': 'QR code generation and management',
-          'analytics-service': 'Scan tracking and analytics',
-          'file-service': 'File upload and storage',
-          'notification-service': 'Email/SMS with database persistence',
-          'api-service': 'API keys, webhooks, SDK generation, and third-party integrations',
-          'team-service': 'Team and organization management with member invitations',
-          'landing-page-service': 'Landing page builder with A/B testing and forms',
-          'payment-processing': 'Multi-provider payments: Swish (Swedish), Stripe, Klarna, PayPal',
-          'admin-dashboard-service': 'Admin authentication, content management, and dashboard APIs',
-          'business-tools-service': 'Custom domains, white labeling, and GDPR compliance management',
-          'sso-service': 'Enterprise SSO with SAML, OAuth2, OIDC, and LDAP authentication providers',
-          'data-retention-service': 'Enterprise data retention policies, archival, and automated cleanup'
-        },
-        database: 'PostgreSQL with complete persistence',
-        architecture: 'Clean Architecture with SOLID principles',
+        services: this.serviceRegistry.getRegisteredServices(),
         health: '/health'
       });
     });
 
-    this.logger.info('Swagger documentation configured', { 
-      endpoint: '/api-docs',
-      json: '/api-docs.json' 
-    });
+    this.logger.info('Swagger documentation configured');
   }
 
   private setupStaticFileServing(): void {
     const path = require('path');
-    
-    // Serve QR code images from the QR service uploads directory
     const qrImagesPath = path.resolve(__dirname, '../../qr-service/uploads/qr-images');
     
-    // Add CORS headers for static files before serving them
     this.app.use('/uploads/qr-images', (req, res, next) => {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Methods', 'GET');
@@ -170,459 +208,186 @@ class ApiGatewayApplication {
     
     this.app.use('/uploads/qr-images', express.static(qrImagesPath));
     
-    this.logger.info('Static file serving configured with CORS', { 
-      route: '/uploads/qr-images',
-      directory: qrImagesPath 
-    });
+    this.logger.info('Static file serving configured');
   }
 
   private setupProxyRoutes(): void {
-    // Auth routes - working proxy with clean logging
+    // Authentication routes (handled by auth module as public)
     this.app.all('/api/auth/*', async (req, res) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const targetUrl = `${this.serviceRegistry.getServiceUrl('user-service')}${req.path.replace('/api/auth', '/auth')}`;
-      
-      try {
-        this.logger.info('Proxying auth request', { requestId, method: req.method, path: req.path, targetUrl });
-        
-        const response = await fetch(targetUrl, {
-          method: req.method,
-          headers: { 'Content-Type': 'application/json' },
-          body: req.method !== 'GET' && req.body ? JSON.stringify(req.body) : undefined
-        });
-        
-        const data = await response.json();
-        this.logger.info('Auth request completed', { requestId, status: response.status });
-        res.status(response.status).json(data);
-        
-      } catch (error) {
-        this.logger.error('Auth proxy failed', { requestId, error: error instanceof Error ? error.message : 'Unknown' });
-        res.status(500).json({
-          success: false,
-          error: { code: 'PROXY_ERROR', message: 'Auth service unavailable', requestId }
-        });
-      }
+      await this.proxyRequest(req, res, 'user-service', '/api/auth', '/auth');
     });
 
-    // Users routes - handle both base route and sub-routes
+    // User routes
     this.app.all('/api/users', async (req, res) => {
       await this.proxyRequest(req, res, 'user-service', '/api/users', '/users');
     });
-    
     this.app.all('/api/users/*', async (req, res) => {
       await this.proxyRequest(req, res, 'user-service', '/api/users', '/users');
     });
 
-    // QR routes - handle both base route and sub-routes
+    // Subscription routes
+    this.app.all('/api/subscription', async (req, res) => {
+      await this.proxyRequest(req, res, 'user-service', '/api/subscription', '/subscription');
+    });
+    this.app.all('/api/subscription/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'user-service', '/api/subscription', '/subscription');
+    });
+
+    // QR routes
     this.app.all('/api/qr', async (req, res) => {
       await this.proxyRequest(req, res, 'qr-service', '/api/qr', '/qr');
     });
-    
     this.app.all('/api/qr/*', async (req, res) => {
       await this.proxyRequest(req, res, 'qr-service', '/api/qr', '/qr');
     });
 
-    // Template routes - handle both base route and sub-routes
+    // Template routes (optional auth)
     this.app.all('/api/templates', async (req, res) => {
       await this.proxyRequest(req, res, 'qr-service', '/api/templates', '/templates');
     });
-    
     this.app.all('/api/templates/*', async (req, res) => {
       await this.proxyRequest(req, res, 'qr-service', '/api/templates', '/templates');
     });
 
-    // Advanced Analytics routes - specific routes for advanced features
-    this.app.use('/api/analytics', this.advancedAnalyticsRoutes.getRouter());
+    // QR Categories routes - handle category management (BEFORE wildcard routes)
+    this.app.all('/api/categories', async (req, res) => {
+      await this.proxyRequest(req, res, 'qr-service', '/api/categories', '/categories');
+    });
+    this.app.all('/api/categories/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'qr-service', '/api/categories', '/categories');
+    });
 
-    // Analytics routes - handle basic analytics and any remaining routes
+    // Bulk QR routes - handle bulk QR generation (BEFORE wildcard routes)
+    this.app.all('/api/bulk', async (req, res) => {
+      await this.proxyRequest(req, res, 'qr-service', '/api/bulk', '/bulk');
+    });
+    this.app.all('/api/bulk/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'qr-service', '/api/bulk', '/bulk');
+    });
+
+    // Dynamic QR routes - handle dynamic QR features (BEFORE wildcard routes)
+    this.app.all('/api/dynamic', async (req, res) => {
+      await this.proxyRequest(req, res, 'qr-service', '/api/dynamic', '/dynamic');
+    });
+    this.app.all('/api/dynamic/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'qr-service', '/api/dynamic', '/dynamic');
+    });
+
+    // Analytics routes
     this.app.all('/api/analytics', async (req, res) => {
       await this.proxyRequest(req, res, 'analytics-service', '/api/analytics', '/analytics');
     });
-    
     this.app.all('/api/analytics/*', async (req, res) => {
       await this.proxyRequest(req, res, 'analytics-service', '/api/analytics', '/analytics');
     });
 
-    // Files routes - handle both base route and sub-routes
+    // File routes
     this.app.all('/api/files', async (req, res) => {
       await this.proxyRequest(req, res, 'file-service', '/api/files', '/files');
     });
-    
     this.app.all('/api/files/*', async (req, res) => {
       await this.proxyRequest(req, res, 'file-service', '/api/files', '/files');
     });
 
-    // Notifications routes - handle both base route and sub-routes
-    this.app.all('/api/notifications', async (req, res) => {
-      await this.proxyRequest(req, res, 'notification-service', '/api/notifications', '');
-    });
-    
-    this.app.all('/api/notifications/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'notification-service', '/api/notifications', '');
-    });
-
-    // Landing Pages routes - handle both base route and sub-routes
-    this.app.all('/api/landing-pages', async (req, res) => {
-      await this.proxyRequest(req, res, 'landing-page-service', '/api/landing-pages', '');
-    });
-    
-    this.app.all('/api/landing-pages/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'landing-page-service', '/api/landing-pages', '');
-    });
-
-    // Landing Page Templates routes
-    this.app.all('/api/landing-templates', async (req, res) => {
-      await this.proxyRequest(req, res, 'landing-page-service', '/api/landing-templates', '/templates');
-    });
-    
-    this.app.all('/api/landing-templates/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'landing-page-service', '/api/landing-templates', '/templates');
-    });
-
-    // Teams routes - handle both base route and sub-routes (following QR/Analytics pattern)
+    // Team routes (Pro+ only, handled by auth middleware)
     this.app.all('/api/teams', async (req, res) => {
       await this.proxyRequest(req, res, 'team-service', '/api/teams', '/api/v1');
     });
-    
     this.app.all('/api/teams/*', async (req, res) => {
       await this.proxyRequest(req, res, 'team-service', '/api/teams', '/api/v1');
     });
 
-    // Payment routes - handle all payment-related operations including Swish
+    // Payment routes
     this.app.all('/api/payments', async (req, res) => {
       await this.proxyRequest(req, res, 'user-service', '/api/payments', '/api/v1/payments');
     });
-    
     this.app.all('/api/payments/*', async (req, res) => {
       await this.proxyRequest(req, res, 'user-service', '/api/payments', '/api/v1/payments');
     });
 
-    // API Service routes - handle API keys, webhooks, SDK generation, and third-party integrations
-    this.app.all('/api/integrations', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/integrations', '/api/v1');
-    });
-    
-    this.app.all('/api/integrations/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/integrations', '/api/v1');
-    });
-
-    // API Keys routes - specific route for better organization
-    this.app.all('/api/keys', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/keys', '/api/v1/keys');
-    });
-    
-    this.app.all('/api/keys/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/keys', '/api/v1/keys');
-    });
-
-    // Webhooks routes - specific route for better organization  
-    this.app.all('/api/webhooks', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/webhooks', '/api/v1/webhooks');
-    });
-    
-    this.app.all('/api/webhooks/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/webhooks', '/api/v1/webhooks');
-    });
-
-    // SDK Generation routes - specific route for SDK operations
-    this.app.all('/api/sdks', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/sdks', '/api/v1/sdks');
-    });
-    
-    this.app.all('/api/sdks/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/sdks', '/api/v1/sdks');
-    });
-
-    // Public API routes - for API key based access
-    this.app.all('/api/public', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/public', '/api/v1/public');
-    });
-    
-    this.app.all('/api/public/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'api-service', '/api/public', '/api/v1/public');
-    });
-
-    // Admin Authentication routes - handle admin login/logout/auth
-    this.app.all('/api/admin/auth', async (req, res) => {
-      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin/auth', '/auth');
-    });
-    
-    this.app.all('/api/admin/auth/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin/auth', '/auth');
-    });
-
-    // Admin Dashboard routes - handle admin authentication and dashboard API
-    this.app.all('/api/admin', async (req, res) => {
-      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin', '/api');
-    });
-    
-    this.app.all('/api/admin/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin', '/api');
-    });
-
-    // Business Tools routes - handle custom domains, GDPR, and white label features
+    // Business routes (Business+ only)
     this.app.all('/api/business/*', async (req, res) => {
       await this.proxyRequest(req, res, 'business-tools-service', '/api/business', '/api/v1');
     });
-
-    // Specific Business Tools routes for better organization
     this.app.all('/api/domains', async (req, res) => {
       await this.proxyRequest(req, res, 'business-tools-service', '/api/domains', '/api/v1/domains');
     });
-    
     this.app.all('/api/domains/*', async (req, res) => {
       await this.proxyRequest(req, res, 'business-tools-service', '/api/domains', '/api/v1/domains');
     });
 
-    // White Label routes
+    // White label routes (Enterprise only)
     this.app.all('/api/white-label', async (req, res) => {
       await this.proxyRequest(req, res, 'business-tools-service', '/api/white-label', '/api/v1/white-label');
     });
-    
     this.app.all('/api/white-label/*', async (req, res) => {
       await this.proxyRequest(req, res, 'business-tools-service', '/api/white-label', '/api/v1/white-label');
     });
 
-    // GDPR routes
-    this.app.all('/api/gdpr', async (req, res) => {
-      await this.proxyRequest(req, res, 'business-tools-service', '/api/gdpr', '/api/v1/gdpr');
+    // Admin routes (Admin permission required)
+    this.app.all('/api/admin', async (req, res) => {
+      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin', '/api');
     });
-    
-    this.app.all('/api/gdpr/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'business-tools-service', '/api/gdpr', '/api/v1/gdpr');
-    });
-
-    // SSO Authentication routes - handle SAML, OAuth, LDAP authentication
-    this.app.all('/api/sso/auth', async (req, res) => {
-      await this.proxyRequest(req, res, 'sso-service', '/api/sso/auth', '/api/v1/auth');
-    });
-    
-    this.app.all('/api/sso/auth/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'sso-service', '/api/sso/auth', '/api/v1/auth');
+    this.app.all('/api/admin/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'admin-dashboard-service', '/api/admin', '/api');
     });
 
-    // SSO Provider management routes - configure SAML, OAuth, LDAP providers
-    this.app.all('/api/sso/providers', async (req, res) => {
-      await this.proxyRequest(req, res, 'sso-service', '/api/sso/providers', '/api/v1/sso/providers');
-    });
-    
-    this.app.all('/api/sso/providers/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'sso-service', '/api/sso/providers', '/api/v1/sso/providers');
+    // Public routes (no auth required)
+    this.app.all('/api/public/*', async (req, res) => {
+      await this.proxyRequest(req, res, 'api-service', '/api/public', '/api/v1/public');
     });
 
-    // SSO Identity management routes - link/unlink user identities
-    this.app.all('/api/sso', async (req, res) => {
-      await this.proxyRequest(req, res, 'sso-service', '/api/sso', '/api/v1/sso');
-    });
-    
-    this.app.all('/api/sso/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'sso-service', '/api/sso', '/api/v1/sso');
+    // QR redirect route (public)
+    this.app.get('/r/:shortId', async (req, res) => {
+      const targetUrl = `${this.serviceRegistry.getServiceUrl('qr-service')}/redirect/${req.params.shortId}`;
+      await this.handleRedirect(req, res, targetUrl);
     });
 
-    // Data Retention routes - handle enterprise data retention policies and cleanup
-    this.app.all('/api/data-retention', async (req, res) => {
-      await this.proxyRequest(req, res, 'data-retention-service', '/api/data-retention', '/api/v1/data-retention');
-    });
-    
-    this.app.all('/api/data-retention/*', async (req, res) => {
-      await this.proxyRequest(req, res, 'data-retention-service', '/api/data-retention', '/api/v1/data-retention');
-    });
-
-    // Public landing page access (special route)
+    // Landing page route (public)  
     this.app.get('/p/:slug', async (req, res) => {
       const targetUrl = `${this.serviceRegistry.getServiceUrl('landing-page-service')}/p/${req.params.slug}`;
-      
-      try {
-        const response = await fetch(targetUrl);
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('text/html')) {
-          // Return HTML for public landing pages
-          const html = await response.text();
-          res.setHeader('Content-Type', 'text/html');
-          res.send(html);
-        } else {
-          // Return JSON response
-          const data = await response.json();
-          res.status(response.status).json(data);
-        }
-      } catch (error) {
-        this.logger.error('Landing page access failed', { 
-          slug: req.params.slug,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        res.status(500).json({ 
-          success: false, 
-          error: { 
-            code: 'LANDING_PAGE_ERROR', 
-            message: 'Landing page access failed' 
-          }
-        });
-      }
+      await this.handleRedirect(req, res, targetUrl);
     });
 
-    // Short URL redirect with validity checking
-    this.app.get('/r/:shortId', async (req, res) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const password = req.query.password as string;
-      const targetUrl = `${this.serviceRegistry.getServiceUrl('qr-service')}/redirect/${req.params.shortId}${password ? `?password=${encodeURIComponent(password)}` : ''}`;
-      
-      try {
-        this.logger.info('QR redirect attempt', { 
-          requestId, 
-          shortId: req.params.shortId,
-          hasPassword: !!password,
-          userAgent: req.get('User-Agent'),
-          ip: req.ip
-        });
-
-        const response = await fetch(targetUrl);
-        const data = await response.json() as any;
-        
-        if (data.success && data.redirectTo) {
-          // Log successful scan for analytics
-          this.logger.info('QR scan successful', {
-            requestId,
-            shortId: req.params.shortId,
-            scans: data.scans,
-            redirectTo: data.redirectTo
-          });
-          
-          // In production, perform actual redirect
-          // res.redirect(data.redirectTo);
-          
-          // For now, return the redirect info
-          res.status(200).json({
-            success: true,
-            message: 'QR code is valid',
-            redirectTo: data.redirectTo,
-            scans: data.scans
-          });
-        } else {
-          // Handle blocked scans (expired, limit exceeded, etc.)
-          this.logger.warn('QR scan blocked', {
-            requestId,
-            shortId: req.params.shortId,
-            reason: data.error?.reason,
-            message: data.error?.message
-          });
-          
-          res.status(response.status).json(data);
-        }
-      } catch (error) {
-        this.logger.error('Redirect proxy failed', { 
-          requestId, 
-          shortId: req.params.shortId,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        res.status(500).json({ 
-          success: false, 
-          error: { 
-            code: 'REDIRECT_ERROR', 
-            message: 'QR redirect failed' 
-          }
-        });
-      }
-    });
+    this.logger.info('Proxy routes configured with Clean Architecture authentication');
   }
 
-  private async getDefaultUserId(): Promise<string | null> {
-    try {
-      // Try to get the first available user from the database
-      const response = await fetch(`${this.serviceRegistry.getServiceUrl('user-service')}/users?limit=1`);
-      if (response.ok) {
-        const data = await response.json() as any;
-        if (data.success && data.data && Array.isArray(data.data) && data.data.length > 0) {
-          return data.data[0].id;
-        }
-      }
-    } catch (error) {
-      this.logger.warn('Failed to fetch default user ID', { error: error instanceof Error ? error.message : 'Unknown' });
-    }
-    return null;
-  }
-
-  private async proxyRequest(req: express.Request, res: express.Response, serviceName: string, fromPath: string, toPath: string): Promise<void> {
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  private async proxyRequest(
+    req: express.Request, 
+    res: express.Response, 
+    serviceName: string, 
+    fromPath: string, 
+    toPath: string
+  ): Promise<void> {
+    const requestId = req.headers['x-request-id'] as string || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const targetPath = req.path.replace(fromPath, toPath);
     const targetUrl = `${this.serviceRegistry.getServiceUrl(serviceName)}${targetPath}`;
     
     try {
-      this.logger.info('Request started', { 
+      this.logger.info('Proxying request with Clean Architecture auth', { 
         requestId, 
-        method: req.method, 
+        service: serviceName,
+        method: req.method,
         path: req.path,
-        userAgent: req.get('User-Agent'),
-        ip: req.ip
+        targetUrl,
+        hasAuth: !!req.auth,
+        userId: req.auth?.userId,
+        subscriptionTier: req.auth?.subscriptionTier
       });
       
-      this.logger.info('Service URL resolved', {
-        serviceName,
-        url: this.serviceRegistry.getServiceUrl(serviceName)
-      });
-      
-      this.logger.info('Proxying request', { 
-        requestId, 
-        service: serviceName, 
-        method: req.method, 
-        originalPath: req.path,
-        targetPath,
-        targetUrl 
-      });
-      
-      // Prepare headers for the proxied request
+      // Prepare headers - authentication already handled by middleware
       const proxyHeaders: { [key: string]: string } = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-request-id': requestId
       };
-      
-      // Extract user ID from JWT token if available
-      let userIdFromToken: string | null = null;
-      const authHeader = req.headers['authorization'] as string;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        try {
-          const token = authHeader.replace('Bearer ', '');
-          const jwt = require('jsonwebtoken');
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production') as any;
-          userIdFromToken = decoded.sub || decoded.id;
-          this.logger.info('JWT token decoded successfully', { 
-            requestId,
-            userId: userIdFromToken,
-            tokenExp: decoded.exp,
-            tokenIat: decoded.iat
-          });
-        } catch (jwtError) {
-          this.logger.warn('JWT token validation failed', { 
-            requestId,
-            error: jwtError instanceof Error ? jwtError.message : 'Unknown JWT error'
-          });
+
+      // Forward all auth headers set by authentication middleware
+      const authHeaderPrefix = 'x-auth-';
+      Object.entries(req.headers).forEach(([key, value]) => {
+        if (key.startsWith(authHeaderPrefix) && value) {
+          proxyHeaders[key] = Array.isArray(value) ? value[0] : value;
         }
-      }
-      
-      // Forward user identification headers with priority: JWT > explicit headers > query params > default
-      if (userIdFromToken) {
-        proxyHeaders['x-user-id'] = userIdFromToken;
-        this.logger.info('Using user ID from JWT token', { requestId, userId: userIdFromToken });
-      } else if (req.headers['x-user-id']) {
-        proxyHeaders['x-user-id'] = req.headers['x-user-id'] as string;
-        this.logger.info('Using user ID from x-user-id header', { requestId, userId: req.headers['x-user-id'] });
-      } else if (req.headers['user-id']) {
-        proxyHeaders['user-id'] = req.headers['user-id'] as string;
-        this.logger.info('Using user ID from user-id header', { requestId, userId: req.headers['user-id'] });
-      } else if (req.query?.userId) {
-        // Check for user ID in URL query params (for analytics frontend)
-        const userId = req.query.userId as string;
-        proxyHeaders['x-user-id'] = userId;
-        this.logger.info('Using user ID from query parameter', { requestId, userId });
-      } else {
-        // Get a valid user ID from the database for development
-        const defaultUserId = await this.getDefaultUserId();
-        if (defaultUserId) {
-          proxyHeaders['x-user-id'] = defaultUserId;
-          this.logger.info('Using default user ID from database', { requestId, userId: defaultUserId });
-        } else {
-          this.logger.error('No user ID available and unable to fetch from database', { requestId });
-        }
-      }
+      });
       
       // Add query parameters to target URL
       const queryString = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
@@ -634,48 +399,35 @@ class ApiGatewayApplication {
         body: req.method !== 'GET' && req.body ? JSON.stringify(req.body) : undefined
       });
       
-      // Handle binary data for image endpoints
+      // Handle binary responses
+      const contentType = response.headers.get('content-type') || '';
       const isImageEndpoint = req.path.includes('/image') || req.path.includes('/download');
       
-      if (isImageEndpoint && response.ok) {
-        // For image/binary endpoints, pipe the response directly
-        const contentType = response.headers.get('content-type') || 'application/octet-stream';
+      if (isImageEndpoint && response.ok && !contentType.includes('application/json')) {
+        const buffer = await response.arrayBuffer();
+        
+        res.setHeader('Content-Type', contentType);
         const contentLength = response.headers.get('content-length');
         const contentDisposition = response.headers.get('content-disposition');
         
-        res.setHeader('Content-Type', contentType);
         if (contentLength) res.setHeader('Content-Length', contentLength);
         if (contentDisposition) res.setHeader('Content-Disposition', contentDisposition);
         
-        const buffer = await response.arrayBuffer();
-        this.logger.info('Binary request completed', { 
-          requestId, 
-          service: serviceName, 
-          status: response.status,
-          contentType,
-          size: buffer.byteLength 
-        });
-        
         res.status(response.status).send(Buffer.from(buffer));
       } else {
-        // For JSON endpoints, parse as JSON
         const data = await response.json();
-        this.logger.info('Request completed', { 
-          requestId, 
-          service: serviceName, 
-          status: response.status 
-        });
         res.status(response.status).json(data);
       }
+      
+      this.logger.info('Request proxied successfully', { requestId, service: serviceName, status: response.status });
       
     } catch (error) {
       this.logger.error('Proxy request failed', { 
         requestId, 
         service: serviceName, 
-        originalPath: req.path,
-        targetUrl,
-        error: error instanceof Error ? error.message : 'Unknown' 
+        error: error instanceof Error ? error.message : 'Unknown error' 
       });
+      
       res.status(500).json({
         success: false,
         error: { 
@@ -684,6 +436,32 @@ class ApiGatewayApplication {
           requestId 
         }
       });
+    }
+  }
+
+  private async handleRedirect(req: express.Request, res: express.Response, targetUrl: string): Promise<void> {
+    try {
+      const response = await fetch(targetUrl);
+      const data = await response.json() as any;
+      
+      if (data.success && data.redirectTo) {
+        // For production, perform actual redirect
+        if (process.env.NODE_ENV === 'production') {
+          res.redirect(data.redirectTo);
+        } else {
+          // For development, return redirect info
+          res.status(200).json({
+            message: 'Redirect detected',
+            redirectTo: data.redirectTo,
+            scans: data.scans
+          });
+        }
+      } else {
+        res.status(response.status).json(data);
+      }
+    } catch (error) {
+      this.logger.error('Redirect handling error:', error);
+      res.status(500).json({ error: 'Internal server error during redirect' });
     }
   }
 
@@ -699,11 +477,12 @@ class ApiGatewayApplication {
       this.logger.info('Initial health check completed', { status: healthStatus.status });
 
       this.app.listen(PORT, '0.0.0.0', () => {
-        this.logger.info('🚀 Clean Architecture API Gateway started successfully', {
+        this.logger.info('🚀 Clean Architecture API Gateway v2.0 started successfully', {
           port: PORT,
           environment: process.env.NODE_ENV || 'development',
           services: this.serviceRegistry.getRegisteredServices(),
-          architecture: 'Clean Architecture with SOLID Principles'
+          architecture: 'Clean Architecture with SOLID Principles',
+          authentication: 'JWT with Gateway-level validation'
         });
       });
 
@@ -715,8 +494,10 @@ class ApiGatewayApplication {
 }
 
 // Start the application
-const gateway = new ApiGatewayApplication();
+const gateway = new CleanApiGatewayApplication();
 gateway.start().catch(error => {
-  console.error('Failed to start API Gateway:', error);
+  console.error('Failed to start Clean Architecture API Gateway:', error);
   process.exit(1);
 });
+
+export { CleanApiGatewayApplication };
